@@ -3,7 +3,14 @@
     "allow": [
       "Bash(mkdir:*)",
       "Bash(dir:*)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:www.shinhancard.com)",
+      "WebFetch(domain:www.payinfo.or.kr)",
+      "WebFetch(domain:www.accountinfo.or.kr)",
+      "WebFetch(domain:www.ccrs.or.kr)",
+      "WebFetch(domain:www.fss.or.kr)",
+      "WebFetch(domain:www.kinfa.or.kr)",
+      "WebFetch(domain:www.samsungcard.com)"
     ],
     "deny": [],
     "ask": []
