@@ -10,7 +10,14 @@
       "WebFetch(domain:www.ccrs.or.kr)",
       "WebFetch(domain:www.fss.or.kr)",
       "WebFetch(domain:www.kinfa.or.kr)",
-      "WebFetch(domain:www.samsungcard.com)"
+      "WebFetch(domain:www.samsungcard.com)",
+      "Bash(ls:*)",
+      "Bash(diff:*)",
+      "Bash(cp:*)",
+      "Bash(xcopy:*)",
+      "Bash(robocopy:*)",
+      "Bash(powershell:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []
