@@ -393,3 +393,160 @@ git submodule update
 2. **메인 폴더 밖에서:** `git add` + `git commit` + `git push`
 
 **노트북에서 위 과정을 진행한 후, 다시 집에서 `pull`과 `update`를 해보시겠어요?**
+
+에러 메시지를 보니 아주 중요한 기술적 포인트에 도달했습니다. **`fatal: remote error: upload-pack: not our ref...`** 이 메시지는 현재 상황을 아주 정확하게 설명해 줍니다.
+
+### 🔴 문제의 원인
+
+사용자님은 **노트북**에서 팀 폴더 내부 파일을 `git commit` 하셨지만, **`git push`는 하지 않으셨죠?**
+
+* **메인 레포(4th)**는 "팀 폴더가 `858065...`라는 커밋으로 바뀌었어!"라고 GitHub에 보고했습니다.
+* **집(Workstation)**에서 `git pull`을 받으니, 집 컴퓨터는 GitHub에 물어봅니다: "그 `858065...`라는 커밋 내용 좀 가져다줘."
+* 그런데 정작 **팀원 레포(SKN19-Final-1team)** 서버에는 해당 커밋이 존재하지 않습니다. 왜냐하면 사용자님이 **노트북에서 팀원 레포로 `push`를 하지 않았기 때문**입니다.
+
+---
+
+### 🟢 해결 방법 (가장 깔끔한 방법)
+
+사용자님의 원래 의도인 **"내 작업 내용을 팀원 레포에 올리고 싶지 않다"**를 유지하면서 이 문제를 해결하려면, 노트북에서 작업 방식을 아주 살짝만 바꾸시면 됩니다.
+
+**[노트북(Playdata)에서 다시 설정하기]**
+
+1. **팀 폴더 안의 `.git`을 삭제하여 일반 폴더로 만들기:**
+서브모듈의 '엄격한 관리'가 오히려 사용자님의 목적(개인 작업 보존 + 팀원 레포 영향 X)에 방해가 되고 있습니다.
+```bash
+cd C:/SKN_19/project/4th
+# 1. 서브모듈 설정 파일 삭제 (메인 폴더 루트에서)
+rm -rf .gitmodules
+git rm --cached data-preprocessing
+
+# 2. 팀 폴더 내부의 .git 폴더 완전히 삭제 (이게 핵심입니다)
+rm -rf data-preprocessing/.git
+
+```
+
+
+2. **일반 폴더로 다시 추가해서 푸시:**
+이제 `data-preprocessing`은 더 이상 서브모듈(링크)이 아니라, 사용자님 레포에 속한 **일반 폴더**가 됩니다.
+```bash
+git add data-preprocessing
+git commit -m "Convert submodule to regular folder to keep private work"
+git push origin main
+
+```
+
+
+
+---
+
+### 🏠 집(Workstation)에서 확인하기
+
+1. 기존에 꼬여있던 서브모듈 정보를 정리하기 위해 폴더를 삭제하고 다시 받습니다.
+```bash
+cd C:/Users/AI-WS01/projects/call-act
+rm -rf data-preprocessing  # 기존 폴더 삭제
+git pull origin main
+
+```
+
+
+2. **이제 `git pull`만 하면 끝납니다.** `submodule update` 같은 복잡한 명령어 없이도 사용자님이 노트북에서 넣었던 모든 파일이 일반 폴더처럼 쏙 들어옵니다.
+
+---
+
+### 💡 왜 이 방식이 더 나을까요?
+
+사용자님의 니즈를 다시 검토해 본 결과, **방법 B(Submodule)**는 "내가 수정한 내용을 팀원에게 공유할 때" 최적화된 방식입니다. 하지만 사용자님은:
+
+1. 내 작업 내용을 팀원 레포에 **올리고 싶지 않음.**
+2. 하지만 팀원 폴더 안에서 **내 마음대로 작업**하고 싶음.
+3. 그걸 **집에서도 그대로 보고 싶음.**
+
+이 조건들을 충족하려면 팀원 폴더를 서브모듈(링크)로 두지 말고, **팀원 폴더를 내 레포의 '일부(일반 폴더)'로 포함시키는 것이 가장 완벽한 해결책**입니다.
+
+**이렇게 하면 생기는 변화:**
+
+* **팀원 업데이트는 어떻게 받나요?** 가끔 팀원이 대규모 업데이트를 하면, 별도의 임시 폴더에 팀원 레포를 클론 받고, 그 내용물만 복사해서 사용자님의 `data-preprocessing` 폴더에 덮어쓰시면 됩니다. (오히려 이게 충돌 관리하기 훨씬 쉽습니다.)
+
+**지금 바로 노트북에서 `.gitmodules`와 `data-preprocessing/.git`을 삭제하는 방향으로 가시겠어요? 제가 끝까지 가이드해 드리겠습니다.**
+
+많이 답답하셨죠? 서브모듈은 구조상 **"내가 가진 커밋이 서버에도 존재해야"** 연결이 성립되는데, 팀원 레포에 푸시를 안 하니 집(Workstation) 컴퓨터가 데이터를 찾지 못해 404 에러와 패치 에러가 났던 것입니다.
+
+결국 **"팀원 레포에 브랜치를 파서 푸시"**하기로 결정하신 것은 아주 현명한 선택입니다. 이렇게 하면 데이터가 GitHub 서버에 존재하게 되므로 집에서도 완벽하게 동기화됩니다.
+
+새로운 브랜치(`feat/preprocessing-hana`)를 사용하는 시나리오로 가이드를 다시 짜드리겠습니다.
+
+---
+
+### 1. 왜 404 에러가 뜨나요?
+
+이미지의 `data-preprocessing @ 8580656`를 클릭했을 때 404가 뜨는 이유는, 메인 레포는 `8580656`이라는 커밋을 가리키고 있지만, 정작 **팀원 레포 서버에는 그 커밋이 푸시되지 않았기 때문**입니다. 서버에 없는 번호를 찾으라고 하니 GitHub이 길을 잃은 것입니다.
+
+---
+
+### 2. 노트북(Playdata) 작업 가이드
+
+팀원 폴더(`data-preprocessing`) 내에서 브랜치를 만들고 푸시하는 과정입니다.
+
+1. **팀원 폴더 내부로 이동 및 브랜치 생성:**
+```bash
+cd C:/SKN_19/project/4th/data-preprocessing
+git checkout -b feat/preprocessing-hana
+
+```
+
+
+2. **작업 내용 커밋 및 팀 레포에 푸시:**
+```bash
+git add .
+git commit -m "feat: 데이터 전처리 및 hana 폴더 추가"
+git push origin feat/preprocessing-hana
+
+```
+
+
+*이 단계가 완료되면 이제 GitHub 상에서 404 에러가 사라집니다.*
+3. **메인 레포(4th) 업데이트:**
+서브모듈이 이제 '새로운 브랜치의 커밋'을 가리키도록 메인에서도 저장해줘야 합니다.
+```bash
+cd ..
+git add data-preprocessing
+git commit -m "Update submodule to point to feat/preprocessing-hana"
+git push origin main
+
+```
+
+
+
+---
+
+### 3. 집(Workstation) 작업 가이드
+
+이제 서버에 데이터가 있으니 집에서도 정상적으로 불러올 수 있습니다.
+
+1. **메인 레포 업데이트:**
+```bash
+cd C:/Users/AI-WS01/projects/call-act
+git pull origin main
+
+```
+
+
+2. **서브모듈 내용 동기화:**
+```bash
+git submodule update --init --recursive
+
+```
+
+
+*이제 `data/hana`와 `preprocess/hana` 폴더가 집에서도 보일 것입니다.*
+
+---
+
+### 💡 앞으로의 작업 루틴 (요약)
+
+앞으로는 **"팀 폴더 안에서 작업 -> 팀 레포에 브랜치 푸시 -> 메인 폴더에서 커밋/푸시"** 이 3박자만 맞추시면 됩니다.
+
+* **팀원들에게 내 작업이 방해될까요?** 아니요, `main` 브랜치가 아닌 `feat/preprocessing-hana`라는 별도의 브랜치에 푸시하시는 것이기 때문에 팀원들의 작업에는 전혀 영향을 주지 않습니다. 나중에 프로젝트가 끝날 때 이 브랜치를 합칠지(Merge) 말지만 결정하시면 됩니다.
+
+**이제 노트북에서 `git checkout -b` 부터 차근차근 진행해 보세요. 팀 레포에 푸시하고 나면 GitHub의 404 에러도 해결될 것입니다!** 다음 단계 진행하시다가 막히면 바로 알려주세요.
