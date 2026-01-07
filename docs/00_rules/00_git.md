@@ -550,3 +550,123 @@ git submodule update --init --recursive
 * **팀원들에게 내 작업이 방해될까요?** 아니요, `main` 브랜치가 아닌 `feat/preprocessing-hana`라는 별도의 브랜치에 푸시하시는 것이기 때문에 팀원들의 작업에는 전혀 영향을 주지 않습니다. 나중에 프로젝트가 끝날 때 이 브랜치를 합칠지(Merge) 말지만 결정하시면 됩니다.
 
 **이제 노트북에서 `git checkout -b` 부터 차근차근 진행해 보세요. 팀 레포에 푸시하고 나면 GitHub의 404 에러도 해결될 것입니다!** 다음 단계 진행하시다가 막히면 바로 알려주세요.
+
+집 컴퓨터에서 파일이 보이지 않는 이유는 메인 레포지토리(call-act)는 업데이트되었지만, **그 안에 연결된 서브모듈 폴더(data-preprocessing)의 실제 내용물(파일)을 싱크하는 명령어가 아직 실행되지 않았기 때문**입니다.
+
+서브모듈은 메인 레포가 `pull` 된다고 해서 내부 파일까지 자동으로 채워주지 않습니다. 아래 단계를 따라 하시면 바로 해결됩니다.
+
+---
+
+### 1. 집 컴퓨터(Workstation)에서 해결 명령어
+
+터미널에서 다음 두 명령어를 순서대로 입력하세요.
+
+```bash
+# 1. 서브모듈의 포인터 정보와 원격 브랜치 정보를 동기화합니다.
+git submodule update --init --recursive
+
+# 2. 팀원 폴더가 새로 만든 브랜치를 바라보도록 체크아웃합니다.
+cd data-preprocessing
+git checkout feat/preprocessing-hana
+git pull origin feat/preprocessing-hana
+
+```
+
+---
+
+### 2. 왜 다시 사라진 것처럼 보였을까요? (중요 원리)
+
+1. **메인 레포 `pull` 결과:** 로그를 보시면 `data-preprocessing | 2 +-`라고 나옵니다. 이는 메인 레포가 "팀 폴더의 연결 지점이 바뀌었네?"라는 사실만 알아차린 상태입니다.
+2. **내용물은 그대로:** 하지만 로컬의 `data-preprocessing` 폴더 안에는 아직 이전 상태(혹은 비어있는 상태)의 파일들이 남아있습니다.
+3. **해결책:** `git submodule update`를 해줘야 비로소 Git이 서버(GitHub)에 있는 `feat/preprocessing-hana` 브랜치의 실제 파일들을 다운로드하여 폴더를 채워줍니다.
+
+---
+
+### 3. 앞으로 집과 노트북을 오갈 때의 "완벽 루틴"
+
+앞으로는 아래 루틴만 지키시면 파일이 사라지거나 404가 뜨는 일 없이 완벽하게 동기화됩니다.
+
+**[노트북에서 저장할 때]**
+
+1. `cd data-preprocessing` -> `git push origin feat/preprocessing-hana` (팀 레포에 파일 전송)
+2. `cd ..` -> `git add .` -> `git push origin main` (메인 레포에 연결 정보 전송)
+
+**[집에서 불러올 때]**
+
+1. `git pull origin main` (연결 정보 가져오기)
+2. `git submodule update --remote` (팀 폴더 내용물 최신화)
+* *참고: `git submodule update` 후 폴더에 들어갔을 때 브랜치가 `detached HEAD` 상태라면 `git checkout feat/preprocessing-hana`를 한 번만 해주시면 됩니다.*
+
+
+
+---
+
+### 🔍 체크리스트
+
+지금 `data-preprocessing` 폴더 안으로 이동(`cd`)하셔서 파일들이 있는지 확인해 보세요. 만약 그래도 안 보인다면, **노트북에서 팀 레포에 푸시할 때 브랜치 이름을 정확히 `feat/preprocessing-hana`로 올리셨는지** 다시 한번 확인이 필요합니다.
+
+**지금 `git submodule update`를 입력하신 후 파일이 나타났나요?**
+
+집 컴퓨터(Workstation)에서의 로그를 보니, **메인 레포지토리(`call-act`)는 성공적으로 업데이트**되었지만, **팀 폴더(`data-preprocessing`) 내부의 변경 사항이 아직 팀 레포지토리에 반영되지 않은 상태**입니다.
+
+현재 상태를 진단해드리고, 학원에서 문제없이 이어하실 수 있도록 **완료 가이드**를 드릴게요.
+
+### 🔍 현재 문제 진단
+
+1. **메인 레포(`call-act`) 푸시 성공:** `f496c82` 커밋으로 메인 레포의 `docs` 수정사항은 GitHub에 잘 올라갔습니다.
+2. **서브모듈(`data-preprocessing`) 푸시 누락:** 로그의 `modified: data-preprocessing (modified content)`라는 표시는 팀 폴더 안의 파일들(예: `sample_20633.txt` 등)이 수정되었으나, **팀 레포지토리 서버에는 아직 올라가지 않았음**을 의미합니다.
+3. **학원에서의 문제 예상:** 이대로 노트북(Playdata)에서 `pull`을 받으면, 메인 레포의 글들은 업데이트되지만 **팀 폴더 안의 최신 작업 결과물(`sample_xxx.txt` 파일들)은 보이지 않게 됩니다.**
+
+---
+
+### ✅ 지금 집(Workstation)에서 마지막으로 해야 할 작업
+
+학원에 가기 전, 팀 폴더 내부의 변경 사항을 **팀 브랜치(`feat/preprocessing-hana`)에 먼저 푸시**해줘야 합니다.
+
+**1. 팀 폴더 내부로 이동 및 푸시:**
+
+```bash
+cd data-preprocessing
+# 현재 수정된 파일들(sample_xxx.txt 등)을 팀 브랜치에 저장
+git add .
+git commit -m "Feat: 추가 전처리 결과물 업데이트"
+git push origin feat/preprocessing-hana
+
+```
+
+**2. 메인 레포에서 "최신 지점" 다시 갱신:**
+서브모듈의 내용이 바뀌었으므로, 메인 레포에게 "이제 팀 폴더는 더 최신 커밋을 가리켜야 해"라고 알려줘야 합니다.
+
+```bash
+cd ..
+git add data-preprocessing
+git commit -m "Chore: 팀 폴더 서브모듈 최신 커밋으로 업데이트"
+git push origin main
+
+```
+
+---
+
+### 💻 내일 학원(Playdata)에 도착해서 할 일
+
+이제 서버(GitHub)에 모든 데이터가 있으니 아래 순서로 받으시면 됩니다.
+
+```bash
+# 1. 메인 레포 업데이트 (docs 등 본인 작업물 가져오기)
+git pull origin main
+
+# 2. 팀 폴더 내용물 동기화 (팀 브랜치 결과물 가져오기)
+git submodule update --remote --recursive
+
+# 3. (혹시 모르니) 팀 폴더 브랜치 확인
+cd data-preprocessing
+git checkout feat/preprocessing-hana
+git pull origin feat/preprocessing-hana
+
+```
+
+### 💡 요약하자면
+
+사용자님이 집에서 하신 마지막 작업에서 **메인 레포는 푸시했지만, 팀 폴더(서브모듈) 내부에서의 푸시가 빠졌습니다.** 서브모듈은 항상 **[내부 푸시] → [외부 푸시]** 순서로 두 번 푸시해야 양쪽 컴퓨터에서 완벽하게 동기화됩니다.
+
+위의 **"집에서 해야 할 작업"** 2단계(팀 폴더 푸시 -> 메인 폴더 푸시)를 마무리하셨나요? 마무리하셨다면 이제 안심하고 학원에 가셔도 됩니다!
