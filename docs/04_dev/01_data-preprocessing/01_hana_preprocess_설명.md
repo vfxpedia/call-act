@@ -1,10 +1,16 @@
 # Hana Card 전처리 스크립트 설명서
 
-**작성일**: 2025-01-05
-**최종 수정일**: 2026-01-07
-**파일**: `preprocess/hana/preprocess_hana.py`
-**목적**: 하나카드 상담 데이터를 VectorDB 및 RDB에 적재 가능한 JSON으로 변환
-**버전**: v2.5
+## 메타데이터
+- **작성일**: 2025-01-05
+- **최종 수정일**: 2026-01-07
+- **작성자**: Project Team
+- **버전**: v3.1 (데이터 저장 안정성 개선)
+- **상태**: 완료
+- **관련 파일**: `data-preprocessing/preprocess/hana/preprocess_hana.py`
+- **관련 문서**: [Hana 데이터 스키마](./00_hana_data_schema.md)
+
+## 목적
+이 문서는 하나카드 상담 데이터를 VectorDB 및 RDB에 적재 가능한 JSON으로 변환하는 전처리 스크립트(`preprocess_hana.py`)의 사용법과 구현 상세를 설명합니다.
 
 ---
 
@@ -190,32 +196,82 @@
 
 ## 3. 사용법
 
-### 전체 데이터 처리
+### 3.1 기본 실행 (자동 중간 저장)
+
+**전체 데이터 처리** (자동으로 30개마다 저장):
 ```bash
-cd C:\SKN_19\project\4th\data-preprocessing
+cd C:\Users\AI-WS01\projects\call-act\data-preprocessing
 python preprocess/hana/preprocess_hana.py
 ```
 
-### 114개 샘플 테스트 (57 카테고리 × 2개)
+기본 동작:
+- **자동 중간 저장**: 30개 처리마다 JSON 파일에 자동 저장 (약 12-15분마다, 평균 25-30초/행 기준)
+- **체크포인트 자동 저장**: 처리 위치와 ID 기록
+- **에러 복구**: 개별 행 에러 발생 시에도 다음 행 계속 처리
+- **중단 시 저장**: Ctrl+C로 중단해도 현재까지 처리된 데이터 자동 저장
+
+### 3.2 재시작 모드 (중단된 곳부터 이어서)
+
+처리가 중단된 경우, 체크포인트에서 이어서 시작:
+```bash
+python preprocess/hana/preprocess_hana.py --resume
+```
+
+재시작 동작:
+- 체크포인트 파일(`data/hana/checkpoint.json`)에서 마지막 처리 위치 확인
+- 이미 처리된 ID는 건너뛰기
+- 기존 JSON 파일에 추가 저장 (중복 방지)
+
+### 3.3 저장 간격 조정
+
+더 자주 저장 (25개마다):
+```bash
+python preprocess/hana/preprocess_hana.py --save-interval 25
+```
+
+덜 자주 저장 (100개마다):
+```bash
+python preprocess/hana/preprocess_hana.py --save-interval 100
+```
+
+재시작 + 저장 간격 변경:
+```bash
+python preprocess/hana/preprocess_hana.py --resume --save-interval 100
+```
+
+### 3.4 테스트 모드
+
+**114개 샘플 테스트** (57 카테고리 × 2개):
 ```bash
 python preprocess/hana/test_114_samples.py
 ```
 
-### 단일 source_id 테스트
+**단일 source_id 테스트**:
 ```bash
 python preprocess/hana/test_specific_row.py
 ```
 
-### 처리 로그 예시
+### 3.5 처리 로그 예시
+
 ```
-[INFO] Starting processing 1000 rows...
+[INFO] Starting processing 6533 rows...
+[INFO] 중간 저장 간격: 50개마다
+[INFO] Sample txt files will be saved to: test_results/full_run
 ============================================================
-[  10/1000] source_id=20593, time=2.34s, avg=2.12s, remaining≈35.2min
-[  20/1000] source_id=20603, time=1.89s, avg=2.05s, remaining≈33.5min
+Processing:   1%|█ | 50/6533 [21:30<46:15:32, 25.81s/row]
+
+[SAVED] 중간 저장 완료: 50개 처리됨 (인덱스: 49)
+Processing:   2%|█ | 100/6533 [43:15<45:52:18, 25.65s/row]
+
+[SAVED] 중간 저장 완료: 100개 처리됨 (인덱스: 99)
 ...
-============================================================
-[COMPLETE] Total processing time: 34.50 minutes (2070.5s)
-[COMPLETE] Average per row: 2.07s
+```
+
+재시작 시:
+```
+[RESUME] 체크포인트에서 재시작: 인덱스 189부터 시작 (이미 처리된 ID: 189개)
+[INFO] Starting processing 6344 rows...
+...
 ```
 
 ---
@@ -225,8 +281,31 @@ python preprocess/hana/test_specific_row.py
 ### 4.1 최종 출력 (전체 처리)
 ```
 data/hana/
-├── hana_vectordb.json       # VectorDB용 (id, text, metadata)
-└── hana_rdb_metadata.json   # RDB용 (id, source_id, client_*, call_*, ...)
+├── hana_vectordb.json           # VectorDB용 (id, content, metadata)
+├── hana_rdb_metadata.json       # RDB용 (id, source_id, client_*, call_*, ...)
+├── checkpoint.json              # 체크포인트 파일 (재시작용)
+├── hana_vectordb.json.backup    # 자동 백업 파일
+└── hana_rdb_metadata.json.backup
+```
+
+**JSON 구조 (올바른 형식)**:
+```json
+{
+  "id": "hana_consultation_21749",
+  "consultation_id": "CS-HANA-21749",
+  "document_type": "consultation_transcript",
+  "title": "교육비자동납부 상담",
+  "content": "상담사: 상담원 [상담원명#1]입니다...",
+  "metadata": {
+    "source_id": "21749",
+    "category": "교육비자동납부",
+    "keywords": ["카드", "교육비", "자동납부"],
+    "slot_types": ["상담원명", "고객명", "초등학교명"],
+    "scenario_tags": ["자동납부신청", "본인확인", "교육비납부"],
+    "summary": null,
+    "created_at": "2026-01-07T10:30:45.123456"
+  }
+}
 ```
 
 ### 4.2 테스트 출력
@@ -235,18 +314,25 @@ preprocess/hana/test_results/
 ├── samples_114/             # 114개 샘플 테스트 결과
 │   ├── test_{source_id}.txt
 │   └── summary.json
-└── all_categories/          # 57개 카테고리 테스트 결과
-    ├── test_{source_id}.txt
-    └── summary.json
+├── all_categories/          # 57개 카테고리 테스트 결과
+│   ├── test_{source_id}.txt
+│   └── summary.json
+├── full_run/               # 전체 처리 중 샘플 (카테고리별 최대 2개)
+│   └── sample_{source_id}.txt
+└── error_logs/             # 에러 로그
+    ├── json_error_{timestamp}.txt      # JSON 파싱 에러
+    └── processing_error_{timestamp}_{count}.txt  # 처리 에러
 ```
 
-### 4.3 백업 폴더
+### 4.3 체크포인트 파일 구조
+```json
+{
+  "last_processed_index": 189,
+  "processed_ids": ["20593", "20594", ...],
+  "timestamp": "2026-01-07T10:30:45.123456"
+}
 ```
-.back/data-preprocessing/    # 이전 버전 백업
-├── preprocess/hana/         # 테스트 스크립트 백업
-├── data/hana/               # 중복 JSON 백업
-└── test_results/            # 이전 테스트 결과 백업
-```
+
 
 ---
 
@@ -424,7 +510,46 @@ preprocess/hana/test_results/
 
 ## 7. 주의사항
 
-### 7.1 마스킹 처리 순서
+### 7.1 데이터 안전성 (v3.1 개선)
+
+**중간 저장 기능**:
+- 기본값으로 **30개마다 자동 저장** (설정 변경 가능, 최적값: 25-50)
+- 평균 처리 속도 기준 약 12-15분마다 저장하여 데이터 손실 최소화
+- 중단되어도 최대 29개 행만 손실 가능 (이전 49개에서 개선)
+- 저장 전 기존 파일 자동 백업 (`.backup` 확장자)
+- **메모리 최적화**: 중간 저장 후 메모리에서 리스트 초기화하여 메모리 사용량 최소화
+
+**체크포인트 기능**:
+- `checkpoint.json`에 처리 상태 및 마지막 처리 인덱스 저장
+- 재시작 시 `--resume` 옵션 사용
+- **정확한 인덱스 추적**: 원본 CSV의 정확한 행 번호 추적
+- **ID 기반 중복 제거**: 이미 처리된 ID는 자동으로 건너뛰기
+- 마지막 행 처리 시 자동 저장으로 누락 방지
+
+**에러 처리**:
+- 개별 행 처리 실패 시에도 다음 행 계속 처리
+- 에러 발생 시에도 인덱스 추적 유지하여 재시작 안정성 향상
+- 에러 로그는 `test_results/error_logs/`에 저장
+- JSON 파싱 에러 발생 시 해당 행은 `[개인정보]`로 폴백 처리
+
+**재시작 로직 개선 (v3.1)**:
+- 원본 CSV rows 전체 유지하여 인덱스 정확도 향상
+- `processed_ids` 기반 건너뛰기로 중복 처리 방지
+- 기존 데이터와 새 데이터 병합 시 ID 기반 중복 제거 강화
+
+### 7.2 성능 최적화 (v3.1 개선)
+
+**문맥 기반 태그 통합**:
+- 복잡한 케이스(같은 타입 태그 3개 이상)만 자동 실행
+- 간단한 케이스는 스킵하여 처리 속도 향상
+- 기본값: 빠른 규칙 기반 처리 (`use_llm=False`)
+
+**처리 시간**:
+- 평균 약 25-30초/행 (LLM 호출 포함)
+- 6533개 전체 처리 예상 시간: 약 45-50시간
+- 중간 저장으로 중단 시에도 데이터 보존
+
+### 7.3 마스킹 처리 순서
 - 반드시 **정규식 → LLM → 검증 → 후처리** 순서로 처리
 - 정규식: 카드번호(16자) → 전화번호(10-11자)
 - LLM: 나머지 ▲ 문맥 기반 태깅
@@ -473,4 +598,74 @@ preprocess/hana/test_results/
 - [x] 114개 샘플 테스트 스크립트 추가 완료
 - [x] 문맥 기반 태그 통합 기능 추가 완료 (v2.5)
 - [x] 모델 선택 옵션 추가 완료 (환경변수 지원)
+- [x] **중간 저장 및 체크포인트 기능 추가 완료 (v3.0)**
+- [x] **자동 에러 처리 및 로깅 추가 완료 (v3.0)**
+- [x] **재시작 기능 추가 완료 (v3.0)**
+- [x] **태그 파싱 에러 수정 완료 (v3.0)**
+- [x] **성능 최적화 (조건부 실행) 추가 완료 (v3.0)**
+- [x] **데이터 저장 안정성 개선 완료 (v3.1)**
+  - [x] 재시작 로직 인덱스 불일치 문제 수정
+  - [x] 메모리 누적 문제 해결
+  - [x] 저장 주기 최적화 (30개 기본값)
+  - [x] 최종 저장 시점 개선
 - [ ] 다른 팀원 코드 수정 안 함 (`samsung/`, `special_card/` 폴더)
+
+---
+
+## 10. 문제 해결 (v3.0 추가)
+
+### 10.1 처리 중단 시
+
+**체크포인트에서 재시작**:
+```bash
+python preprocess/hana/preprocess_hana.py --resume
+```
+
+**수동 복구**:
+1. `checkpoint.json` 확인하여 마지막 처리 위치 확인
+2. `hana_vectordb.json`, `hana_rdb_metadata.json` 확인 (자동 저장된 데이터)
+3. 재시작하면 이미 처리된 ID는 건너뛰기
+
+### 10.2 JSON 파싱 에러 발생 시
+
+**에러 로그 확인**:
+```
+test_results/error_logs/json_error_{timestamp}.txt
+```
+
+**해당 데이터 처리**:
+- 에러 발생한 행은 `[개인정보]`로 폴백 처리됨
+- 에러 로그에서 원본 LLM 응답 확인 가능
+- 수동으로 재처리 필요 시 해당 source_id로 `test_specific_row.py` 사용
+
+### 10.3 처리 속도가 느린 경우
+
+**저장 간격 조정** (더 자주 저장 → 속도 약간 감소):
+```bash
+python preprocess/hana/preprocess_hana.py --save-interval 25
+```
+
+**문맥 통합 비활성화** (코드 수정 필요):
+```python
+normalize_all_masking_v2(content, use_llm=True, merge_semantic_tags=False)
+```
+
+---
+
+## 결론 / 다음 단계
+
+### 핵심 요약
+- v3.0에서 중간 저장 및 체크포인트 기능이 추가되어 대규모 데이터 처리 시 안전성이 크게 향상되었습니다.
+- v3.1에서 데이터 저장 안정성이 대폭 개선되었습니다:
+  - 재시작 로직 인덱스 불일치 문제 해결
+  - 메모리 누적 문제 해결으로 메모리 사용량 최적화
+  - 저장 주기 최적화 (30개 기본값)로 데이터 손실 최소화
+  - 정확한 인덱스 추적 및 ID 기반 중복 제거 강화
+- 조건부 실행을 통해 성능 최적화를 달성했습니다.
+- 태그 파싱 에러 수정으로 안정성이 개선되었습니다.
+
+### 후속 작업
+- 실제 데이터로 전체 처리 테스트 수행
+- 처리 속도 모니터링 및 최적화 지속
+- 에러 로그 분석 및 처리 개선
+- 장기 실행 시 메모리 사용량 모니터링
