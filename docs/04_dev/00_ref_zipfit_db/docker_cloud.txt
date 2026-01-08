@@ -1,0 +1,11 @@
+# 도커 클라우드 업로드용 테스트
+docker pull what5up7/zf_db:1.0
+
+# 도커 실행 테스트
+docker run `
+--name db_test_container `
+-p 5432:5432 `
+-e POSTGRES_USER=zf_admin `
+-e POSTGRES_PASSWORD=zf_pwd1 `
+-e POSTGRES_DB=zf_db `
+-d what5up7/zf_db:1.0
