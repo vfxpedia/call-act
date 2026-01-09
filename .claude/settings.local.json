@@ -28,7 +28,8 @@
       "Bash(iconv:*)",
       "Bash(test:*)",
       "Bash(pip install:*)",
-      "WebFetch(domain:dbml.dbdiagram.io)"
+      "WebFetch(domain:dbml.dbdiagram.io)",
+      "Bash(unzip:*)"
     ],
     "deny": [],
     "ask": []
