@@ -1,3 +1,9 @@
 [submodule "data-preprocessing"]
 	path = data-preprocessing
 	url = https://github.com/SKN19-Final-1team/data-preprocessing.git
+[submodule "backend"]
+	path = backend
+	url = https://github.com/SKN19-Final-1team/backend.git
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/SKN19-Final-1team/frontend.git
