@@ -1,5 +1,5 @@
 -- ==================================================
--- CALL:ACT 하나카드 데이터 적재용 DB 설정 스크립트
+-- CALL:ACT 테디카드 데이터 적재용 DB 설정 스크립트
 -- ==================================================
 -- Description: PostgreSQL + pgvector 확장 설치 및 필요한 테이블 생성
 -- Author: CALL:ACT Team
@@ -136,10 +136,10 @@ CREATE INDEX IF NOT EXISTS idx_consultation_documents_usage_count ON consultatio
 
 COMMENT ON TABLE consultation_documents IS '상담 사례 문서 + RAG 검색용 VectorDB 메타데이터';
 
--- 6. 기본 상담사 생성 (하나카드 데이터 적재용)
+-- 6. 기본 상담사 생성 (테디카드 데이터 적재용)
 INSERT INTO employees (id, name, email, role, department, status, created_at)
 VALUES 
-    ('EMP-HANA-DEFAULT', '하나카드 기본 상담사', 'default@hana.com', '상담사', '하나카드 상담팀', 'active', NOW())
+    ('EMP-TEDI-DEFAULT', '테디카드 기본 상담사', 'default@tedicard.com', '상담사', '테디카드 상담팀', 'active', NOW())
 ON CONFLICT (id) DO NOTHING;
 
 -- 7. 벡터 인덱스 생성 (HNSW - 대규모 데이터용)
@@ -160,7 +160,7 @@ BEGIN
     RAISE NOTICE '- employees 테이블 생성됨';
     RAISE NOTICE '- consultations 테이블 생성됨';
     RAISE NOTICE '- consultation_documents 테이블 생성됨';
-    RAISE NOTICE '- 기본 상담사 생성됨 (EMP-HANA-DEFAULT)';
+    RAISE NOTICE '- 기본 상담사 생성됨 (EMP-TEDI-DEFAULT)';
     RAISE NOTICE '- 벡터 인덱스 생성됨';
 END $$;
 

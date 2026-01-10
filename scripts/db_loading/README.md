@@ -30,7 +30,7 @@ scripts/db_loading/
 
 ```bash
 # DBeaver에서 실행 또는
-psql -h localhost -U callact_admin -d call_act_db -f ../../data-preprocessing/scripts/db_setup.sql
+psql -h localhost -U callact_admin -d callact_db -f scripts/db_loading/db_setup.sql
 ```
 
 ## 실행 순서
@@ -113,24 +113,52 @@ python verify_db_load.py
 
 ## 환경 변수
 
-`.env` 파일에 다음 변수 설정:
+**⚠️ 중요**: 
+- **팀원**: 프로젝트 루트에 `.env` 파일 생성 (`call-act/.env`)
+- **개인 개발**: `scripts/db_loading/.env` 파일 생성 가능 (우선 사용, 개인 파일)
+- 스크립트는 다음 순서로 `.env` 파일을 읽습니다:
+  1. `scripts/db_loading/.env` (있으면 우선 사용)
+  2. 프로젝트 루트 `.env` (팀원 공용)
+
+### .env 파일 생성 (팀원용)
+
+**프로젝트 루트에 `.env` 파일 생성**:
+
+```bash
+# Windows PowerShell (프로젝트 루트에서)
+cd C:\Users\AI-WS01\projects\call-act
+Copy-Item backend\.env.example .env
+
+# 또는 수동으로 생성
+```
+
+### .env 파일 내용 (프로젝트 루트)
 
 ```env
-# OpenAI
-OPENAI_API_KEY=sk-your-api-key-here
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-
-# PostgreSQL
+# PostgreSQL Database Configuration
+# 로컬 개발 시: localhost
+# 팀원 Docker 서버: 팀원 IP 주소 또는 Tailscale IP
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=callact_admin
 DB_PASSWORD=callact_pwd1
-DB_NAME=call_act_db
+DB_NAME=callact_db
 
-# 설정
-EMBEDDING_BATCH_SIZE=100
+# OpenAI API Key (임베딩 생성 시 필요)
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+OPENAI_EMBEDDING_DIMENSION=1536
+
+# 배치 처리 설정 (선택사항)
 DB_LOAD_BATCH_SIZE=100
+DB_COMMIT_INTERVAL=500
+EMBEDDING_BATCH_SIZE=100
 ```
+
+**⚠️ 참고**: 
+- `DB_HOST_IP`는 사용하지 않습니다 (팀원의 Tailscale IP는 무시)
+- 실제 비밀번호는 `.env` 파일에 저장하고 Git에 커밋하지 마세요
+- `scripts/db_loading/.env`는 개인 파일이므로 팀원과 공유하지 않습니다
 
 ## 트러블슈팅
 

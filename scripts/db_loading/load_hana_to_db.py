@@ -17,12 +17,16 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime, date, time as dt_time
 from dotenv import load_dotenv
 import psycopg2
+from psycopg2.extensions import connection as psycopg2_connection
 from psycopg2.extras import execute_batch, Json
 from psycopg2 import sql
 from tqdm import tqdm
 
 # 환경 변수 로드
-load_dotenv(Path(__file__).parent.parent.parent / '.env')
+# 1. 로컬 .env 파일 우선 (scripts/db_loading/.env)
+# 2. 프로젝트 루트 .env 파일 (override=False로 이미 로드된 값은 유지)
+load_dotenv(Path(__file__).parent / '.env', override=False)
+load_dotenv(Path(__file__).parent.parent.parent / '.env', override=False)
 
 # 상수
 BASE_DIR = Path(__file__).parent.parent.parent
@@ -34,15 +38,15 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "5432"))
 DB_USER = os.getenv("DB_USER", "callact_admin")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "callact_pwd1")
-DB_NAME = os.getenv("DB_NAME", "call_act_db")
+DB_NAME = os.getenv("DB_NAME", "callact_db")
 BATCH_SIZE = int(os.getenv("DB_LOAD_BATCH_SIZE", "100"))
 COMMIT_INTERVAL = int(os.getenv("DB_COMMIT_INTERVAL", "500"))
 
 # 기본 상담사 ID
-DEFAULT_AGENT_ID = "EMP-HANA-DEFAULT"
+DEFAULT_AGENT_ID = "EMP-TEDI-DEFAULT"
 
 
-def connect_db() -> psycopg2.connection:
+def connect_db() -> psycopg2_connection:
     """PostgreSQL 데이터베이스 연결"""
     try:
         conn = psycopg2.connect(
@@ -59,7 +63,7 @@ def connect_db() -> psycopg2.connection:
         sys.exit(1)
 
 
-def ensure_default_agent(conn: psycopg2.connection) -> str:
+def ensure_default_agent(conn: psycopg2_connection) -> str:
     """기본 상담사가 없으면 생성"""
     cursor = conn.cursor()
     
@@ -77,10 +81,10 @@ def ensure_default_agent(conn: psycopg2.connection) -> str:
             VALUES (%s, %s, %s, %s, %s, %s, NOW())
         """, (
             DEFAULT_AGENT_ID,
-            "하나카드 기본 상담사",
-            "default@hana.com",
+            "테디카드 기본 상담사",
+            "default@tedicard.com",
             "상담사",
-            "하나카드 상담팀",
+            "테디카드 상담팀",
             "active"
         ))
         conn.commit()
@@ -167,7 +171,7 @@ def map_consultation_data(row: Dict, agent_id: str) -> Tuple:
 
 
 def load_consultations(
-    conn: psycopg2.connection,
+    conn: psycopg2_connection,
     json_path: Path,
     limit: Optional[int] = None
 ) -> int:
@@ -306,7 +310,7 @@ def map_document_data(row: Dict) -> Tuple:
 
 
 def load_consultation_documents(
-    conn: psycopg2.connection,
+    conn: psycopg2_connection,
     json_path: Path,
     limit: Optional[int] = None
 ) -> int:
@@ -393,7 +397,7 @@ def load_consultation_documents(
     return len(mapped_data)
 
 
-def verify_load(conn: psycopg2.connection) -> Dict:
+def verify_load(conn: psycopg2_connection) -> Dict:
     """적재 데이터 검증"""
     cursor = conn.cursor()
     

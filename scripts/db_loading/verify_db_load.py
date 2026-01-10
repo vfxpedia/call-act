@@ -14,23 +14,27 @@ from pathlib import Path
 from typing import Dict, List
 from dotenv import load_dotenv
 import psycopg2
+from psycopg2.extensions import connection as psycopg2_connection
 from psycopg2.extras import RealDictCursor
 from openai import OpenAI
 
 # 환경 변수 로드
-load_dotenv(Path(__file__).parent.parent.parent / '.env')
+# 1. 로컬 .env 파일 우선 (scripts/db_loading/.env)
+# 2. 프로젝트 루트 .env 파일 (override=False로 이미 로드된 값은 유지)
+load_dotenv(Path(__file__).parent / '.env', override=False)
+load_dotenv(Path(__file__).parent.parent.parent / '.env', override=False)
 
 # 환경 변수
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "5432"))
 DB_USER = os.getenv("DB_USER", "callact_admin")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "callact_pwd1")
-DB_NAME = os.getenv("DB_NAME", "call_act_db")
+DB_NAME = os.getenv("DB_NAME", "callact_db")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
 
-def connect_db() -> psycopg2.connection:
+def connect_db() -> psycopg2_connection:
     """PostgreSQL 데이터베이스 연결"""
     try:
         conn = psycopg2.connect(
@@ -46,7 +50,7 @@ def connect_db() -> psycopg2.connection:
         sys.exit(1)
 
 
-def verify_data_counts(conn: psycopg2.connection) -> Dict:
+def verify_data_counts(conn: psycopg2_connection) -> Dict:
     """데이터 개수 확인"""
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
@@ -95,7 +99,7 @@ def verify_data_counts(conn: psycopg2.connection) -> Dict:
     return results
 
 
-def verify_foreign_keys(conn: psycopg2.connection) -> Dict:
+def verify_foreign_keys(conn: psycopg2_connection) -> Dict:
     """Foreign Key 관계 확인"""
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
@@ -136,7 +140,7 @@ def verify_foreign_keys(conn: psycopg2.connection) -> Dict:
     return results
 
 
-def verify_embeddings(conn: psycopg2.connection) -> Dict:
+def verify_embeddings(conn: psycopg2_connection) -> Dict:
     """임베딩 벡터 검증"""
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     
@@ -178,7 +182,7 @@ def verify_embeddings(conn: psycopg2.connection) -> Dict:
     return results
 
 
-def test_similarity_search(conn: psycopg2.connection, test_query: str = "카드 분실 신고") -> List[Dict]:
+def test_similarity_search(conn: psycopg2_connection, test_query: str = "카드 분실 신고") -> List[Dict]:
     """유사도 검색 테스트"""
     if not OPENAI_API_KEY:
         print("[WARNING] OPENAI_API_KEY not found, skipping similarity search test")

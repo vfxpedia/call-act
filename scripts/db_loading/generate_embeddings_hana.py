@@ -7,11 +7,14 @@
 - 임베딩 벡터 생성 및 저장
 - 배치 처리 및 에러 핸들링
 - 체크포인트 지원 (재시작 가능)
+- 파일 로그 저장 (단일 파일에 기록 업데이트)
 """
 
 import json
 import os
+import sys
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
@@ -19,13 +22,78 @@ from tqdm import tqdm
 from openai import OpenAI
 
 # 환경 변수 로드
-load_dotenv(Path(__file__).parent.parent.parent / '.env')
+# 1. 로컬 .env 파일 우선 (scripts/db_loading/.env)
+# 2. 프로젝트 루트 .env 파일 (override=False로 이미 로드된 값은 유지)
+load_dotenv(Path(__file__).parent / '.env', override=False)
+load_dotenv(Path(__file__).parent.parent.parent / '.env', override=False)
 
 # 상수
 BASE_DIR = Path(__file__).parent.parent.parent
 INPUT_FILE = BASE_DIR / "data-preprocessing" / "data" / "hana" / "hana_vectordb.json"
 OUTPUT_FILE = BASE_DIR / "data-preprocessing" / "data" / "hana" / "hana_vectordb_with_embeddings.json"
 CHECKPOINT_FILE = BASE_DIR / "scripts" / "db_loading" / "embedding_checkpoint.json"
+LOG_FILE = BASE_DIR / "scripts" / "db_loading" / "embedding_generation.log"
+
+
+class TeeLogger:
+    """콘솔과 파일에 동시에 로그를 출력하는 클래스"""
+    def __init__(self, log_file: Path):
+        self.log_file = log_file
+        self.log_file.parent.mkdir(parents=True, exist_ok=True)
+        self.file_handle = open(log_file, 'a', encoding='utf-8')
+        self.original_stdout = sys.stdout
+        self.original_stderr = sys.stderr
+    
+    def write(self, message: str):
+        """로그 메시지를 파일과 콘솔에 동시에 출력"""
+        # 파일에 기록
+        self.file_handle.write(message)
+        self.file_handle.flush()
+        
+        # 콘솔에 출력
+        self.original_stdout.write(message)
+        self.original_stdout.flush()
+    
+    def close(self):
+        """로그 파일 닫기"""
+        if self.file_handle:
+            self.file_handle.close()
+
+
+# 전역 로거 인스턴스
+tee_logger: Optional[TeeLogger] = None
+
+
+def setup_logging():
+    """로깅 설정 (단일 파일에 기록)"""
+    global tee_logger
+    if tee_logger is None:
+        # 기존 로그 파일에 이어서 기록 (append 모드)
+        tee_logger = TeeLogger(LOG_FILE)
+        # 시작 로그
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        tee_logger.write(f"\n{'='*80}\n")
+        tee_logger.write(f"Embedding Generation Started: {timestamp}\n")
+        tee_logger.write(f"{'='*80}\n")
+    return tee_logger
+
+
+def log_print(*args, **kwargs):
+    """로그 출력 함수 (콘솔 + 파일, 타임스탬프 포함)"""
+    global tee_logger
+    if tee_logger is None:
+        setup_logging()
+    
+    # 타임스탬프 추가
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    message = ' '.join(str(arg) for arg in args)
+    if kwargs.get('end', '\n') == '\n':
+        message += '\n'
+    
+    # 타임스탬프가 포함된 메시지 생성
+    timestamped_message = f"[{timestamp}] {message}"
+    
+    tee_logger.write(timestamped_message)
 
 # 환경 변수
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -39,10 +107,10 @@ REQUEST_DELAY = float(os.getenv("EMBEDDING_REQUEST_DELAY", "0.5"))
 
 def load_vectordb_json(file_path: Path) -> List[Dict]:
     """VectorDB JSON 파일 로드"""
-    print(f"[INFO] Loading {file_path}...")
+    log_print(f"[INFO] Loading {file_path}...")
     with open(file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    print(f"[INFO] Loaded {len(data)} documents")
+    log_print(f"[INFO] Loaded {len(data)} documents")
     return data
 
 
@@ -73,11 +141,11 @@ def generate_embedding(text: str, client: OpenAI, retries: int = MAX_RETRIES) ->
         except Exception as e:
             if attempt < retries - 1:
                 wait_time = RETRY_DELAY * (attempt + 1)
-                print(f"[WARNING] API error (attempt {attempt + 1}/{retries}): {e}")
-                print(f"[INFO] Retrying in {wait_time} seconds...")
+                log_print(f"[WARNING] API error (attempt {attempt + 1}/{retries}): {e}")
+                log_print(f"[INFO] Retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
             else:
-                print(f"[ERROR] Failed to generate embedding after {retries} attempts: {e}")
+                log_print(f"[ERROR] Failed to generate embedding after {retries} attempts: {e}")
                 return None
     return None
 
@@ -106,7 +174,7 @@ def generate_embeddings_batch(
     # 이미 처리된 문서 제외
     if resume:
         documents = [doc for doc in documents if doc.get("id") not in processed_ids]
-        print(f"[RESUME] {len(processed_ids)} documents already processed, {len(documents)} remaining")
+        log_print(f"[RESUME] {len(processed_ids)} documents already processed, {len(documents)} remaining")
     
     # 진행률 표시
     pbar = tqdm(total=len(documents), desc="Generating embeddings")
@@ -119,7 +187,7 @@ def generate_embeddings_batch(
         content = doc.get("content", "")
         
         if not content:
-            print(f"[WARNING] Document {doc_id} has no content, skipping")
+            log_print(f"[WARNING] Document {doc_id} has no content, skipping")
             continue
         
         # 임베딩 생성
@@ -140,7 +208,7 @@ def generate_embeddings_batch(
                 save_checkpoint(checkpoint)
         else:
             errors.append(doc_id)
-            print(f"[ERROR] Failed to generate embedding for {doc_id}")
+            log_print(f"[ERROR] Failed to generate embedding for {doc_id}")
         
         pbar.update(1)
         
@@ -157,7 +225,9 @@ def generate_embeddings_batch(
     }
     save_checkpoint(checkpoint)
     
-    print(f"\n[INFO] Completed: {len(results)} embeddings generated, {len(errors)} errors")
+    log_print(f"\n[INFO] Completed: {len(results)} embeddings generated, {len(errors)} errors")
+    if errors:
+        log_print(f"[ERROR] Failed document IDs: {errors[:10]}{'...' if len(errors) > 10 else ''}")
     
     return results
 
@@ -166,10 +236,10 @@ def save_embeddings_json(documents: List[Dict], output_path: Path):
     """임베딩이 포함된 JSON 파일 저장"""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
-    print(f"[INFO] Saving {len(documents)} documents to {output_path}...")
+    log_print(f"[INFO] Saving {len(documents)} documents to {output_path}...")
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(documents, f, ensure_ascii=False, indent=2)
-    print(f"[INFO] Saved to {output_path}")
+    log_print(f"[INFO] Saved to {output_path}")
 
 
 def main():
@@ -188,21 +258,28 @@ def main():
     input_file = Path(args.input) if args.input else INPUT_FILE
     output_file = Path(args.output) if args.output else OUTPUT_FILE
     
+    # 로깅 설정
+    setup_logging()
+    log_print(f"[INFO] Log file: {LOG_FILE}")
+    
     # 입력 파일 확인
     if not input_file.exists():
-        print(f"[ERROR] Input file not found: {input_file}")
+        log_print(f"[ERROR] Input file not found: {input_file}")
+        if tee_logger:
+            tee_logger.close()
         return
     
     # 데이터 로드
     documents = load_vectordb_json(input_file)
     
     # 임베딩 생성
-    print(f"\n[INFO] Starting embedding generation...")
-    print(f"[INFO] Model: {EMBEDDING_MODEL}")
-    print(f"[INFO] Dimension: {EMBEDDING_DIMENSION}")
-    print(f"[INFO] Batch size: {BATCH_SIZE}")
-    print(f"[INFO] Limit: {args.limit if args.limit else 'None (all documents)'}")
-    print(f"[INFO] Resume: {args.resume}\n")
+    log_print(f"\n[INFO] Starting embedding generation...")
+    log_print(f"[INFO] Model: {EMBEDDING_MODEL}")
+    log_print(f"[INFO] Dimension: {EMBEDDING_DIMENSION}")
+    log_print(f"[INFO] Batch size: {BATCH_SIZE}")
+    log_print(f"[INFO] Limit: {args.limit if args.limit else 'None (all documents)'}")
+    log_print(f"[INFO] Resume: {args.resume}")
+    log_print(f"[INFO] Output file: {output_file}\n")
     
     start_time = time.time()
     documents_with_embeddings = generate_embeddings_batch(
@@ -216,12 +293,22 @@ def main():
     save_embeddings_json(documents_with_embeddings, output_file)
     
     # 요약
-    print(f"\n[SUMMARY]")
-    print(f"  Total documents: {len(documents)}")
-    print(f"  Processed: {len(documents_with_embeddings)}")
-    print(f"  Elapsed time: {elapsed_time:.1f} seconds ({elapsed_time/60:.1f} minutes)")
-    print(f"  Average time per document: {elapsed_time/len(documents_with_embeddings):.2f} seconds")
-    print(f"  Output file: {output_file}")
+    log_print(f"\n[SUMMARY]")
+    log_print(f"  Total documents: {len(documents)}")
+    log_print(f"  Processed: {len(documents_with_embeddings)}")
+    log_print(f"  Elapsed time: {elapsed_time:.1f} seconds ({elapsed_time/60:.1f} minutes)")
+    if documents_with_embeddings:
+        log_print(f"  Average time per document: {elapsed_time/len(documents_with_embeddings):.2f} seconds")
+    log_print(f"  Output file: {output_file}")
+    log_print(f"  Log file: {LOG_FILE}")
+    
+    # 로그 파일 닫기
+    if tee_logger:
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        tee_logger.write(f"{'='*80}\n")
+        tee_logger.write(f"[{timestamp}] Embedding Generation Completed\n")
+        tee_logger.write(f"{'='*80}\n\n")
+        tee_logger.close()
 
 
 if __name__ == "__main__":
