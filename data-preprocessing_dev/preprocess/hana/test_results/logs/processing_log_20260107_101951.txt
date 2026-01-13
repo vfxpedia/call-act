@@ -1,0 +1,40 @@
+[INFO] 기존 파일 백업: C:\Users\AI-WS01\projects\call-act\data-preprocessing\data\hana\hana_vectordb.json.backup
+
+============================================================
+[INFO] 전처리 시작
+[INFO] 로그 파일: C:\Users\AI-WS01\projects\call-act\data-preprocessing\preprocess\hana\test_results\logs\processing_log_20260107_101951.txt
+============================================================
+모드: 새로 시작
+총 처리 대상: 6533개 행
+중간 저장 간격: 30개마다 (약 12분 30.0초마다, 평균 25초/행 기준)
+샘플 저장 위치: C:\Users\AI-WS01\projects\call-act\data-preprocessing\preprocess\hana\test_results\full_run
+체크포인트 파일: C:\Users\AI-WS01\projects\call-act\data-preprocessing\data\hana\checkpoint.json
+============================================================
+[SAVED] 중간 저장 완료 (624분 12.7초 경과)
+  - 처리 완료: 1500개 행 (총 CSV 인덱스: 1499/6532)
+  - 이번 저장 데이터: 30개 (VectorDB), 30개 (RDB)
+  - 전체 저장 데이터: 1500개 (VectorDB), 1500개 (RDB)
+  - 저장 소요 시간: 0.1초
+  - 메모리 초기화 완료
+  - 다음 저장까지: 약 30개 행 남음
+  - 체크포인트 업데이트: 인덱스 1499, 처리된 ID 1500개
+============================================================
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 여러 번 언급되었으나 서로 다른 번호로 태깅되어 일관성이 없음. 예를 들어, 부분 취소 금액과 매입 취소 금액이 각각 [금액#1], [금액#2], [금액#3], [금액#4], [금액#5]로 태깅되어 같은 금액인지 구분이 어려움.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+============================================================
+[INTERRUPTED] 사용자 중단 감지 (624분 55.4초 경과)
+  - 처리 완료: 1501개 행
+  - 마지막 CSV 인덱스: 1500/6532
+  - 메모리 상태: 1개 (VectorDB), 1개 (RDB) 남음
+  - 저장 중...
+[SAVED] 중단 시점까지 저장 완료:
+  - 저장된 데이터: 1개 (VectorDB), 1개 (RDB)
+  - 전체 저장 데이터: 1501개 (VectorDB), 1501개 (RDB)
+  - 저장 소요 시간: 0.1초
+  - 재시작: python preprocess/hana/preprocess_hana.py --resume
+============================================================

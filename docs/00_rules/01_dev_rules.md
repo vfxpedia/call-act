@@ -175,13 +175,181 @@ python preprocess_hana.py
 
 ---
 
-## 4. Git 규칙
+## 4. 프로젝트 구조 및 개발 워크플로우
 
-### 4.1 절대 금지
+### 4.0 개발 환경 관리 원칙
+
+**핵심 원칙**: 모든 개발은 `*_dev` 폴더에서 진행하고, 테스트 완료 후 `*` 폴더로 복사하여 팀과 공유합니다.
+
+**경로 관리 방법**:
+1. **`config.py` 사용** (권장):
+   - 환경 변수(`PREPROCESSING_ENV`)로 경로 전환
+   - `dev`: `data-preprocessing_dev/preprocessing/output`
+   - `prod`: `data-preprocessing/preprocess/output`
+   - 기본값: `ENV_TYPE = os.getenv('PREPROCESSING_ENV', 'prod').lower()`
+   
+2. **하드코딩 경로**:
+   - 복사 시 직접 수정: `data-preprocessing_dev` → `data-preprocessing`
+   - `preprocessing` → `preprocess` (폴더 구조에 맞춰)
+
+**서브모듈 구조**:
+- **메인 레포**: `call-act` (개인 Git)
+- **서브모듈**: `data-preprocessing`, `backend`, `frontend` (팀 레포)
+- **개인 개발**: `*_dev` 폴더 (메인 레포 내부)
+
+### 4.1 프로젝트 폴더 구조
+
+**루트 프로젝트 폴더**:
+- 워크스테이션: `call-act`
+- 노트북: `4th`
+
+**서브 모듈 (팀 레포지토리)**:
+- `data-preprocessing`: 데이터 전처리 팀 레포
+- `backend`: 백엔드 팀 레포
+- `frontend`: 프론트엔드 팀 레포
+
+**개인 개발 폴더**:
+- `data-preprocessing_dev`: 개인 데이터 전처리 개발
+- `backend_dev`: 개인 백엔드 개발
+- `frontend_dev`: 개인 프론트엔드 개발
+
+### 4.2 개발 워크플로우 원칙
+
+**기본 원칙**:
+1. **개인 개발**: `*_dev` 폴더에서 개발 진행
+2. **팀 공유**: 테스트 완료 후 `*` 폴더로 복사하여 커밋
+3. **팀원 코드 수정 금지**: 다른 팀원이 작업한 내용은 원칙적으로 수정 금지
+   - 수정이 필요한 경우: 사용자(담당자) 요구에 따라 진행
+   - 버그 발견 시: 이슈 등록 후 담당자 확인
+
+**개발 → 팀 공유 프로세스**:
+1. `*_dev` 폴더에서 개발 및 테스트
+2. 완료된 파일을 `*` 폴더로 복사
+3. 경로 수정:
+   - `config.py` 사용: `ENV_TYPE='prod'` 설정 또는 환경 변수 사용
+   - 하드코딩 경로: `data-preprocessing_dev` → `data-preprocessing` 직접 수정
+4. Git 커밋 (서브모듈 및 메인 레포 동기화)
+   - 서브모듈 커밋 → 메인 레포 서브모듈 포인터 업데이트
+
+**개발 → 팀 공유 프로세스**:
+1. `*_dev` 폴더에서 개발 및 테스트
+2. 완료된 파일을 `*` 폴더로 복사
+3. 경로 수정 (하드코딩된 경로를 config.py 사용 또는 직접 수정)
+4. `config.py` 기본값 설정 (dev: `ENV_TYPE='dev'`, prod: `ENV_TYPE='prod'`)
+5. Git 커밋 (서브모듈 및 메인 레포 동기화)
+
+**경로 관리 원칙**:
+- `config.py` 사용: 환경 변수(`PREPROCESSING_ENV`) 또는 기본값으로 경로 전환
+  - `dev`: `data-preprocessing_dev/preprocessing/output`
+  - `prod`: `data-preprocessing/preprocess/output`
+- 하드코딩 경로: 복사 시 `data-preprocessing_dev` → `data-preprocessing` 직접 수정
+
+### 4.3 문서화 규칙
+
+**3단계 문서화 구조**:
+
+1. **진행 과정 문서** (`docs/04_dev/`):
+   - 모든 진행 과정과 이슈 기록
+   - `docs/00_rules/` 규칙 준수
+   - 폴더별로 정리 (예: `docs/04_dev/02_db/`)
+
+2. **정리된 전문 문서** (`*_dev/docs/`):
+   - 1번 문서를 바탕으로 프로세스 정리
+   - 사용자 요구 시 작성
+   - 전문적이고 체계적인 문서
+
+3. **팀 공유 문서** (`*/docs/`):
+   - 2번 문서 중 팀원에게 공유할 핵심 내용만
+   - 최소한의 필수 정보 포함
+
+### 4.4 환경 변수 관리
+
+**`.env` 파일 관리 원칙**:
+- 메인 `.env`: 프로젝트 루트(`call-act/`)에서 관리
+- 각 레포지토리: `.env.example`을 복사하여 `.env` 생성
+- `.env.example`: 비밀번호 등 민감 정보 제외 (템플릿만 제공)
+- Git 커밋: `.env` 파일은 절대 커밋하지 않음
+
+**예시**:
+```bash
+# 프로젝트 루트에서
+cp .env.example .env
+# .env 파일에 실제 값 입력
+
+# 각 레포지토리에서
+cd backend
+cp .env.example .env
+# 또는 프로젝트 루트 .env 참조
+```
+
+## 5. Git 규칙
+
+### 5.1 프로젝트 구조 (서브모듈)
+
+**메인 레포지토리**: `call-act` (개인 Git)
+- 프로젝트 전체 구조 관리
+- 서브모듈 포인터 관리
+
+**서브모듈 (팀 레포지토리)**:
+- `data-preprocessing`: 데이터 전처리 팀 레포
+- `backend`: 백엔드 팀 레포
+- `frontend`: 프론트엔드 팀 레포
+
+**개인 개발 폴더**:
+- `data-preprocessing_dev`: 개인 전처리 개발
+- `backend_dev`: 개인 백엔드 개발
+- `frontend_dev`: 개인 프론트엔드 개발
+
+### 5.2 브랜치 전략
+
+**현재 진행 중인 브랜치**:
+- `data-preprocessing`: `feat/preprocessing-hana` → `feat/data-merge`
+- `backend`: `feat/collact_db`
+- `frontend`: `feat/ui-main`
+
+### 5.3 Git 커밋 프로세스
+
+**서브모듈 커밋**:
+```bash
+# 1. 서브모듈 폴더로 이동
+cd data-preprocessing
+
+# 2. 변경사항 확인
+git status
+
+# 3. 파일 추가
+git add data/teddycard/
+git add preprocess/teddycard/
+git add docs/teddycard_preprocessing/
+
+# 4. 커밋
+git commit -m "feat: 테디카드 전처리 데이터 및 스크립트 추가
+
+- 전처리 완료 파일 (with_embeddings.json 3개)
+- 키워드 사전 파일 (keywords_dict_v2_with_patterns.json)
+- 전처리 스크립트 (00~17번)
+- config.py (ENV_TYPE='prod' 설정)
+- 실행 가이드 문서"
+
+# 5. 푸시
+git push origin feat/teddycard-data
+```
+
+**메인 레포지토리 서브모듈 포인터 업데이트**:
+```bash
+# 메인 레포 루트에서
+git add data-preprocessing
+git commit -m "chore: data-preprocessing 서브모듈 업데이트 (테디카드 데이터)"
+git push
+```
+
+### 5.4 절대 금지
 - **다른 팀원 코드 수정 금지** (버그 발견 시 이슈 등록)
 - 본인 작업 폴더 외 수정 금지
+- `.env` 파일 커밋 금지
+- 서브모듈 포인터만 업데이트하고 서브모듈 내부 파일을 직접 수정하지 않기
 
-### 4.2 작업 폴더 구조
+### 5.5 작업 폴더 구조
 ```
 preprocess/
 ├── hana/          # 홍길동 작업
@@ -189,14 +357,28 @@ preprocess/
 └── special_card/  # 이영희 작업 (수정 금지!)
 ```
 
+### 5.6 서브모듈 동기화
+
+**서브모듈 커밋 순서**:
+1. 서브모듈 폴더로 이동 (`cd data-preprocessing`)
+2. 변경사항 커밋 (`git add .`, `git commit`, `git push`)
+3. 메인 레포 루트로 이동 (`cd ..`)
+4. 서브모듈 포인터 업데이트 (`git add data-preprocessing`, `git commit`, `git push`)
+
+**주의사항**:
+- 서브모듈 내부 커밋 후 메인 레포에서도 서브모듈 포인터를 업데이트해야 함
+- 서브모듈 포인터만 업데이트하고 서브모듈 내부 파일을 직접 수정하지 않기
+
+**상세 가이드**: [테디카드 전처리 데이터 커밋 가이드](../00_git/테디카드_전처리_데이터_커밋_가이드.md)
+
 ---
 
-## 5. LLM 코드 작성 시 추가 규칙
+## 6. LLM 코드 작성 시 추가 규칙
 
-### 5.1 함수 길이 제한
+### 6.1 함수 길이 제한
 - **1개 함수 = 최대 50줄** (초과 시 분리)
 
-### 5.2 매직 넘버 금지
+### 6.2 매직 넘버 금지
 ```python
 # Bad
 if len(text) > 10:
@@ -208,14 +390,14 @@ if len(text) > MAX_TEXT_LENGTH:
     pass
 ```
 
-### 5.3 Type Hints 필수
+### 6.3 Type Hints 필수
 ```python
 # 모든 함수에 타입 힌트 작성
 def process_text(text: str, max_length: int = 100) -> str:
     pass
 ```
 
-### 5.4 에러 처리
+### 6.4 에러 처리
 ```python
 # Bad - 묵시적 에러 무시
 try:
@@ -233,7 +415,7 @@ except json.JSONDecodeError as e:
 
 ---
 
-## 6. 코드 리뷰 체크리스트
+## 7. 코드 리뷰 체크리스트
 
 - [ ] 반복 코드 3회 이상 → 함수화?
 - [ ] 변수명 의미 파악 가능?

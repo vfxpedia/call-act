@@ -1,0 +1,604 @@
+// ==================================================
+// CALL:ACT Database Schema (DBML)
+// ==================================================
+// Description: CALL:ACT 카드사 상담 지원 시스템 데이터베이스 스키마
+// Author: CALL:ACT Team
+// Date: 2026-01-07
+// Database: PostgreSQL with pgvector extension
+// ==================================================
+
+// ==================================================
+// ENUMS
+// ==================================================
+
+Enum consultation_status {
+  completed        [note: '완료']
+  in_progress      [note: '진행중']
+  incomplete       [note: '미완료']
+}
+
+Enum card_type {
+  credit          [note: '신용카드']
+  debit           [note: '체크카드']
+}
+
+Enum brand_type {
+  visa
+  mastercard
+  amex
+  unionpay
+}
+
+Enum consultation_category {
+  card_loss        [note: '카드분실']
+  overseas_payment [note: '해외결제']
+  fee_inquiry      [note: '수수료문의']
+  points           [note: '포인트']
+  limit_inquiry    [note: '한도조회']
+  other            [note: '기타']
+}
+
+Enum benefit_type {
+  discount         [note: '할인']
+  points_accrual   [note: '포인트적립']
+  cashback         [note: '캐시백']
+}
+
+Enum fee_type {
+  overseas_fee           [note: '해외수수료']
+  cash_service_fee       [note: '현금서비스수수료']
+  annual_fee             [note: '연회비']
+}
+
+Enum emotion_type {
+  positive        [note: '긍정적']
+  neutral         [note: '중립']
+  negative        [note: '부정적']
+}
+
+Enum quality_rating {
+  high           [note: '상']
+  medium         [note: '중']
+  low            [note: '하']
+}
+
+Enum speaker_type {
+  customer
+  agent
+}
+
+Enum difficulty_level {
+  beginner       [note: '초급']
+  intermediate   [note: '중급']
+  advanced       [note: '고급']
+}
+
+Enum scenario_type {
+  real_case       [note: '실제 사례']
+  llm_generated   [note: 'LLM 생성']
+}
+
+Enum notice_priority {
+  normal         [note: '일반']
+  important      [note: '중요']
+  urgent         [note: '긴급']
+}
+
+Enum notice_category {
+  system         [note: '시스템']
+  service        [note: '서비스']
+  emergency      [note: '긴급']
+}
+
+Enum status {
+  active
+  inactive
+  suspended
+}
+
+Enum promotion_status {
+  ongoing        [note: '진행중']
+  ended          [note: '종료']
+}
+
+Enum card_status {
+  active         [note: '정상']
+  suspended      [note: '정지']
+  lost           [note: '분실']
+  terminated     [note: '해지']
+}
+
+// ==================================================
+// TABLE GROUP 1: 카드 정보 DB (Card Information Database)
+// ==================================================
+
+Table card_products {
+  id varchar(50) [pk, note: 'CARD-001']
+  name varchar(200) [not null, note: '하나카드 원큐 VIVA 체크카드']
+  card_type card_type [not null]
+  brand brand_type
+  annual_fee_domestic int [note: '국내전용 연회비']
+  annual_fee_global int [note: '해외겸용 연회비']
+  performance_condition text [note: '실적 조건']
+  main_benefits text [note: '주요 혜택 (간략)']
+  status status [default: 'active']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  note: '카드 상품 마스터 테이블'
+}
+
+Table card_benefits {
+  id serial [pk]
+  card_id varchar(50) [not null, ref: > card_products.id]
+  category varchar(100) [note: '주유, 커피, 편의점, 통신비']
+  benefit_type benefit_type [not null]
+  benefit_rate decimal(5,2) [note: '5.00 = 5% 할인']
+  benefit_limit int [note: '월 한도 (원)']
+  condition_text text [note: '월 30만원 이상 이용시']
+  partner_name varchar(200) [note: '제휴사명 (SK에너지, 스타벅스 등)']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    card_id
+    category
+    benefit_type
+  }
+
+  note: '카드 혜택 상세 테이블'
+}
+
+Table fee_info {
+  id serial [pk]
+  fee_type fee_type [not null]
+  card_id varchar(50) [ref: > card_products.id]
+  fee_rate decimal(5,2) [note: '1.50 = 1.5%']
+  fixed_fee int [note: '고정 수수료 (원)']
+  description text
+  exemption_condition text [note: '면제 조건']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    card_id
+    fee_type
+  }
+
+  note: '수수료 정보 테이블'
+}
+
+Table point_policy {
+  id serial [pk]
+  card_id varchar(50) [not null, ref: > card_products.id]
+  category varchar(100) [note: '일반가맹점, 해외가맹점']
+  point_rate decimal(5,2) [note: '0.50 = 0.5% 적립']
+  point_unit int [note: '적립 단위 (1000원당)']
+  expiry_months int [note: '포인트 유효기간 (개월)']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    card_id
+  }
+
+  note: '포인트 정책 테이블'
+}
+
+Table promotions {
+  id varchar(50) [pk, note: 'PROMO-2025-001']
+  title varchar(200) [not null, note: '하나카드x메가커피 프로모션']
+  card_id varchar(50) [ref: > card_products.id]
+  start_date date [not null]
+  end_date date [not null]
+  benefit_description text
+  conditions text
+  target_customer varchar(50) [note: '신규고객, 전체, 우수고객']
+  status promotion_status [default: 'ongoing']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    card_id
+    (start_date, end_date)
+    status
+  }
+
+  note: '프로모션 정보 테이블'
+}
+
+Table customer_cards {
+  id serial [pk]
+  customer_id varchar(50) [not null, note: '외부 시스템 고객 ID (FK 없음)']
+  card_id varchar(50) [not null, ref: > card_products.id]
+  issued_date date [not null, note: '발급일']
+  card_number_hash varchar(64) [note: '카드번호 해시 (보안)']
+  card_status card_status [default: 'active']
+  is_primary boolean [default: false, note: '주 카드 여부']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    customer_id
+    card_id
+    (customer_id, card_id) [unique]
+  }
+
+  note: '고객-카드 연결 테이블 (customer_id는 외부 시스템 참조)'
+}
+
+// ==================================================
+// TABLE GROUP 2: 카드사 이용 안내 DB (Service Guide Database)
+// ==================================================
+
+Table notices {
+  id varchar(50) [pk, note: 'NOTICE-2025-001']
+  title varchar(300) [not null]
+  content text [not null]
+  category notice_category [not null]
+  priority notice_priority [default: 'normal']
+  is_pinned boolean [default: false, note: '상단 고정 여부']
+  start_date date [not null]
+  end_date date
+  status status [default: 'active']
+  created_by varchar(50) [note: '작성자 ID']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    category
+    priority
+    is_pinned
+    (start_date, end_date)
+  }
+
+  note: '공지사항 테이블'
+}
+
+Table frequent_inquiries {
+  id serial [pk]
+  category consultation_category [not null]
+  question text [not null, note: '연회비는 언제 청구되나요?']
+  answer text [not null, note: '카드 발급일 기준 1년 후...']
+  view_count int [default: 0, note: '조회수']
+  is_active boolean [default: true]
+  display_order int [note: '표시 순서']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    category
+    display_order
+    view_count
+  }
+
+  note: '자주 찾는 문의 테이블'
+}
+
+Table inquiry_view_log {
+  id serial [pk]
+  inquiry_id int [not null, ref: > frequent_inquiries.id]
+  viewed_by varchar(50) [note: '조회한 사용자 ID']
+  viewed_at timestamp [default: `now()`]
+
+  indexes {
+    inquiry_id
+    viewed_by
+    viewed_at
+  }
+
+  note: '문의 조회 로그 테이블'
+}
+
+Table service_guide_documents {
+  id varchar(50) [pk, note: 'DOC-GUIDE-001']
+  document_type varchar(50) [note: 'usage_guide, consumer_alert, financial_guide']
+  category varchar(100) [note: '신용카드사용가이드, 소비자주의경보']
+  title varchar(300) [not null]
+  content text [not null]
+  keywords text[] [note: '검색 키워드 배열']
+  embedding vector(1536) [note: 'OpenAI embedding vector for RAG']
+  metadata jsonb [note: '추가 메타데이터 (JSON)']
+  document_source varchar(200) [note: '출처: 금융감독원 가이드라인']
+  priority varchar(20) [default: 'normal']
+  usage_count int [default: 0]
+  last_used timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    document_type
+    category
+    usage_count
+  }
+
+  note: '카드사 이용 안내 문서 + VectorDB 메타데이터'
+}
+
+// ==================================================
+// TABLE GROUP 3: 상담 사례 DB (Consultation Cases Database)
+// ==================================================
+
+// --------------------------------------------------
+// 3-1. 기본 상담 테이블
+// --------------------------------------------------
+
+Table employees {
+  id varchar(50) [pk, note: 'EMP-001']
+  name varchar(100) [not null]
+  email varchar(100) [unique]
+  role varchar(50) [note: '상담사, 매니저, 관리자']
+  department varchar(100) [note: '상담팀, 카드발급팀']
+  hire_date date
+  status status [default: 'active']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    role
+    department
+    status
+  }
+
+  note: '직원(상담사) 정보 테이블'
+}
+
+Table consultations {
+  id varchar(50) [pk, note: 'CS-20250105-1432']
+  customer_id varchar(50) [not null, note: '외부 시스템 고객 ID (FK 없음)']
+  agent_id varchar(50) [not null, ref: > employees.id]
+  status consultation_status [default: 'in_progress']
+  category consultation_category [not null]
+  title text [note: '카드 분실 신고 및 재발급 요청']
+  call_date date [not null]
+  call_time time [not null]
+  call_duration varchar(20) [note: '5:23']
+  fcr boolean [note: 'First Call Resolution']
+  is_best_practice boolean [default: false, note: '우수 사례 여부']
+  quality_score int [note: '품질 점수 (0-100)']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    customer_id
+    agent_id
+    status
+    category
+    call_date
+    fcr
+    is_best_practice
+  }
+
+  note: '상담 마스터 테이블 (customer_id는 외부 시스템 참조)'
+}
+
+Table consultation_transcripts {
+  id serial [pk]
+  consultation_id varchar(50) [not null, ref: > consultations.id]
+  speaker speaker_type [not null]
+  message text [not null]
+  timestamp time [not null]
+  sentiment emotion_type [note: '감정 분석 결과']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    consultation_id
+    speaker
+    timestamp
+  }
+
+  note: '상담 전문 (STT 결과) 테이블'
+}
+
+Table consultation_summaries {
+  id serial [pk]
+  consultation_id varchar(50) [not null, unique, ref: > consultations.id]
+  ai_summary text [note: 'AI가 생성한 요약']
+  memo text [note: '상담사 메모']
+  follow_up_tasks text [note: '후속 일정']
+  handoff_department varchar(100) [note: '이관 부서']
+  handoff_notes text [note: '이관 사항']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    consultation_id
+  }
+
+  note: '상담 요약 및 후처리 테이블'
+}
+
+Table consultation_feedback {
+  id serial [pk]
+  consultation_id varchar(50) [not null, unique, ref: > consultations.id]
+  emotion_start emotion_type [note: '초반 감정']
+  emotion_middle emotion_type [note: '중반 감정']
+  emotion_end emotion_type [note: '후반 감정']
+  quality_score quality_rating [note: '품질 평가: 상/중/하']
+  processing_time_score int [note: '후처리 소요 시간 점수 (0-100)']
+  gratitude_score int [note: '감사 표현 비율 점수']
+  emotion_shift_score int [note: '감정 전환 점수']
+  manual_compliance_score int [note: '매뉴얼 준수 점수']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    consultation_id
+  }
+
+  note: '감정 분석 및 피드백 테이블'
+}
+
+Table stt_keywords {
+  id serial [pk]
+  consultation_id varchar(50) [not null, ref: > consultations.id]
+  keyword varchar(100) [not null, note: '카드분실, 해외결제']
+  confidence float [note: '신뢰도 (0-1)']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    consultation_id
+    keyword
+  }
+
+  note: 'STT 키워드 추출 테이블'
+}
+
+// --------------------------------------------------
+// 3-2. 교육 관련 테이블
+// --------------------------------------------------
+
+Table training_scenarios {
+  id varchar(50) [pk, note: 'SIM-001']
+  title varchar(200) [not null, note: '카드 분실 신고 및 재발급']
+  description text [note: '시나리오 설명']
+  difficulty difficulty_level [not null]
+  estimated_duration varchar(20) [note: '5분, 10분']
+  category consultation_category [not null]
+  tags text[] [note: '검색 태그 배열']
+  scenario_type scenario_type [not null]
+  source_consultation_id varchar(50) [note: '실제 사례 기반인 경우 원본 상담 ID', ref: > consultations.id]
+  is_locked boolean [default: false, note: '잠금 여부']
+  unlock_condition text [note: '잠금 해제 조건']
+  pass_score int [default: 80, note: '합격 점수']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  indexes {
+    difficulty
+    category
+    scenario_type
+    is_locked
+  }
+
+  note: '교육 시나리오 테이블'
+}
+
+Table scenario_scripts {
+  id serial [pk]
+  scenario_id varchar(50) [not null, ref: > training_scenarios.id]
+  step_order int [not null, note: '대화 순서']
+  speaker speaker_type [not null]
+  message text [note: '대화 내용 (상담사는 null)']
+  expected_keywords text[] [note: '상담사가 말해야 할 키워드 (평가용)']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    scenario_id
+    step_order
+  }
+
+  note: '시나리오 대화 스크립트 테이블'
+}
+
+Table scenario_evaluation_criteria {
+  id serial [pk]
+  scenario_id varchar(50) [not null, ref: > training_scenarios.id]
+  criteria_name varchar(200) [not null, note: '고객 인사, 분실 확인, 재발급 안내']
+  max_score int [not null, note: '최대 점수']
+  keywords text[] [note: '필수 키워드']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    scenario_id
+  }
+
+  note: '시나리오 평가 기준 테이블'
+}
+
+Table scenario_attempts {
+  id serial [pk]
+  scenario_id varchar(50) [not null, ref: > training_scenarios.id]
+  agent_id varchar(50) [not null, ref: > employees.id]
+  score int [note: '획득 점수']
+  duration varchar(20) [note: '소요 시간']
+  completed_at timestamp [not null]
+  evaluation_detail jsonb [note: '평가 상세 내역 (JSON)']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    scenario_id
+    agent_id
+    completed_at
+    score
+  }
+
+  note: '시나리오 시도 기록 테이블'
+}
+
+Table best_practices {
+  id serial [pk]
+  consultation_id varchar(50) [not null, unique, ref: > consultations.id]
+  title varchar(200) [not null, note: '진상 고객 대응 우수 사례']
+  category consultation_category [not null]
+  key_takeaway text [note: '핵심 포인트']
+  recommended_for text[] [note: '추천 대상: 신입, 중급']
+  views int [default: 0, note: '조회수']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    consultation_id
+    category
+    views
+  }
+
+  note: '우수 상담 사례 테이블'
+}
+
+// --------------------------------------------------
+// 3-3. VectorDB 메타데이터 테이블
+// --------------------------------------------------
+
+Table consultation_documents {
+  id varchar(50) [pk, note: 'DOC-CONSULT-001']
+  consultation_id varchar(50) [ref: > consultations.id]
+  document_type varchar(50) [note: 'past_consultation, training_scenario']
+  category consultation_category [not null]
+  title varchar(300) [not null]
+  content text [not null, note: '상담 요약 또는 시나리오 내용']
+  keywords text[] [note: '검색 키워드 배열']
+  embedding vector(1536) [note: 'OpenAI embedding vector for RAG']
+  metadata jsonb [note: '추가 메타데이터 (agent_id, fcr, quality_score 등)']
+  usage_count int [default: 0]
+  effectiveness_score decimal(3,2) [note: '효과성 점수 (0-1)']
+  last_used timestamp
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    consultation_id
+    document_type
+    category
+    usage_count
+  }
+
+  note: '상담 사례 문서 + VectorDB 메타데이터 테이블'
+}
+
+// ==================================================
+// TABLE GROUPS
+// ==================================================
+
+TableGroup card_info_db {
+  card_products
+  card_benefits
+  fee_info
+  point_policy
+  promotions
+  customer_cards
+}
+
+TableGroup service_guide_db {
+  notices
+  frequent_inquiries
+  inquiry_view_log
+  service_guide_documents
+}
+
+TableGroup consultation_cases_db {
+  employees
+  consultations
+  consultation_transcripts
+  consultation_summaries
+  consultation_feedback
+  stt_keywords
+  training_scenarios
+  scenario_scripts
+  scenario_evaluation_criteria
+  scenario_attempts
+  best_practices
+  consultation_documents
+}

@@ -43,6 +43,14 @@
    - 환경 설정
    - 역할 분담
 
+11. **[15_임베딩_생성_중_병렬_작업_가이드.md](./15_임베딩_생성_중_병렬_작업_가이드.md)**: 임베딩 생성 중 병렬 작업 가이드
+   - Docker 및 DB 스키마 준비
+   - Cloudflare Tunnel 설정 준비
+
+12. **[16_DB_적재_실행_가이드.md](./16_DB_적재_실행_가이드.md)**: 테디카드 데이터 DB 적재 가이드
+   - DB 적재 스크립트 작성
+   - 데이터 적재 및 검증
+
 ## 🚀 빠른 시작
 
 > **현재 상태 확인**: 임베딩 완료 ✅, Docker 실행 완료 ✅
@@ -50,13 +58,13 @@
 ### 지금 바로 실행하기
 
 **1. DB 스키마 생성** (5분)
-- DBeaver에서 `scripts/db_loading/db_setup.sql` 실행
-- 또는: `python scripts/db_loading/setup_db.py`
+- DBeaver에서 `backend/db_setup.sql` 실행
+- 또는: `python backend/setup_db.py`
 
 **2. DB 적재** (10-20분)
 ```bash
 conda activate final_env
-cd scripts/db_loading
+cd backend
 python load_hana_to_db.py
 ```
 
@@ -73,19 +81,19 @@ python verify_db_load.py
 
 ```bash
 # 1. 환경 설정
-conda env create -f scripts/environment.yml
+conda env create -f backend/environment.yml
 conda activate final_env
-pip install -r scripts/requirements.txt
+pip install -r backend/requirements.txt
 
 # 2. Docker로 PostgreSQL 실행
-cd scripts/docker
+cd backend
 docker-compose up -d
 
 # 3. DB 스키마 생성 (DBeaver에서 실행)
-# scripts/db_loading/db_setup.sql
+# backend/db_setup.sql
 
 # 4. 임베딩 생성 (이미 완료했다면 생략)
-cd ../db_loading
+cd ..
 python generate_embeddings_hana.py
 
 # 5. DB 적재

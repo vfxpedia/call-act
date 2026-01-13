@@ -1,0 +1,868 @@
+[RESUME] 체크포인트에서 재시작: 이미 처리된 ID: 1501개
+[RESUME] 기존 VectorDB 데이터: 1501개
+[RESUME] 기존 RDB 데이터: 1501개
+
+============================================================
+[INFO] 전처리 시작
+[INFO] 로그 파일: C:\Users\AI-WS01\projects\call-act\data-preprocessing\preprocess\hana\test_results\logs\processing_log_20260107_221748.txt
+============================================================
+모드: 재시작 (Resume)
+총 처리 대상: 6533개 행
+이미 처리됨: 1501개 ID (건너뜀)
+처리할 행: 5032개
+중간 저장 간격: 30개마다 (약 12분 30.0초마다, 평균 25초/행 기준)
+샘플 저장 위치: C:\Users\AI-WS01\projects\call-act\data-preprocessing\preprocess\hana\test_results\full_run
+체크포인트 파일: C:\Users\AI-WS01\projects\call-act\data-preprocessing\data\hana\checkpoint.json
+============================================================
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 처음에 [금액#1]로 태깅되었으나, 이후 동일 결제 건에 대해 [금액#2]로 다른 번호가 사용됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: The two mentions of [카드사명#2] refer to the same card company but are treated as different entities when mentioning two 체크 카드, which should have distinct numbers for each card but the same company name should keep the same number.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 카드사명이 서로 다른 번호([카드사명#1], [카드사명#2])로 태깅되었으나, 대화 내용상 같은 카드사로 보임.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲ (문맥: ...: 혹시 [전화번호_구성요소#1]에 ▲, 네 개 번이 수신거부나 스팸 차단...)
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 카드번호_구성요소가 대화 중 두 번 등장했으나 서로 다른 번호(#1, #2)로 태깅되어 있어 같은 카드번호 구성요소임에도 번호가 다름.
+    문제 2 [same_entity_different_number]: 전화번호_구성요소가 상담사와 손님 간에 서로 다른 번호(#1, #2)로 태깅되어 있어 같은 전화번호임에도 번호가 다름.
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲ (문맥: ...: 혹시 [전화번호_구성요소#1]에 ▲, 네 개 번이 수신거부나 스팸 차단...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 1개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 여러 번 등장하는데 서로 다른 번호가 부여됨: [금액#1], [금액#2], [금액#3], [금액#4]. 대화 내에서 금액들이 같은 금액인지 명확하지 않으나, 손님이 '그 [금액#2] 보실 거'라고 말한 부분과 상담사가 '버스 [금액#3]원'이라고 말한 부분은 같은 금액일 가능성이 있음에도 번호가 다름.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 '금액#1'과 '금액#2'로 각각 다른 번호가 부여되었으나, 같은 결제 금액으로 보임. 같은 번호를 사용해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 날짜#2와 날짜#3이 같은 날짜임에도 서로 다른 번호가 할당되어 일관성이 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 개체임에도 불구하고 [금액#1], [금액#2], [금액#3], [금액#4]로 서로 다른 번호가 사용됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲ (문맥: ...액#1] 결제 진행을 도와드릴 텐데 ▲▲에서 출금해 드리면 될까요? 
+손님:...)
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 처음에 [금액#1]로 태깅되었으나 손님이 '네, [금액#2]하고 나머지는 가상계좌 좀 넣어주세요.'라고 하여 같은 금액임에도 다른 번호가 사용됨.
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲ (문맥: ...액#1] 결제 진행을 도와드릴 텐데 ▲▲에서 출금해 드리면 될까요? 
+손님:...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 1개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 개체임에도 불구하고 [금액#2], [금액#3], [금액#4]로 각각 다른 번호가 사용됨. 특히 손님이 '그 [금액#2]원이 그'라고 말한 금액과 이후 내역서 발송 관련 금액([금액#3], [금액#4])은 동일한 금액으로 추정되므로 같은 번호를 사용해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+============================================================
+[SAVED] 중간 저장 완료 (11분 40.1초 경과)
+  - 처리 완료: 30개 행 (총 CSV 인덱스: 1530/6532)
+  - 이번 저장 데이터: 30개 (VectorDB), 30개 (RDB)
+  - 전체 저장 데이터: 1531개 (VectorDB), 1531개 (RDB)
+  - 저장 소요 시간: 0.1초
+  - 메모리 초기화 완료
+  - 다음 저장까지: 약 30개 행 남음
+  - 체크포인트 업데이트: 인덱스 1530, 처리된 ID 1531개
+============================================================
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 날짜가 같은 '25일'이 대화 중 여러 번 등장하지만 각각 다른 번호([날짜#4], [날짜#5])로 태깅되어 일관성이 없음.
+    문제 2 [same_entity_different_number]: 상담원명은 처음과 마지막에 [상담원명#1]로 일관되나, 날짜 태깅에서 동일한 날짜가 여러 번호로 분리되어 있음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 의미로 사용되었으나 서로 다른 번호(금액#1, 금액#2, 금액#3)가 부여됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 80만원이 처음에 [금액#1]로 언급되었으나, 이후에는 [금액#1] 대신 80만원으로만 표현되고, 청구서 상 납부 예정 금액은 [금액#2]로 표현되어 동일 금액에 대해 다른 번호가 사용된 것으로 보임.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 2
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲ (문맥: ... 했었는데
+상담사: 예, 지금 현재 ▲▲에서 했으니 이제 ▲▲로 [금액#6]...)
+    위치 2: ▲▲ (문맥: ..., 지금 현재 ▲▲에서 했으니 이제 ▲▲로 [금액#6] 결제가 들어갔고요, ...)
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 개체들이 여러 번호로 분리되어 있으나, 대화 내에서 동일 금액인지 명확하지 않아 혼동 가능. 예를 들어, [금액#11]이 동일 금액임에도 불구하고 다른 번호가 부여된 부분은 없으나, [금액#1]부터 [금액#10]까지 여러 금액이 등장하는데, 일부는 같은 금액일 가능성이 있으나 번호가 다름.
+    문제 2 [same_entity_different_number]: 상담사와 손님이 같은 고객명을 확인하는데 [고객명#1]로 일관되게 사용되어 문제 없음.
+    문제 3 [different_entity_same_number]: 은행명은 [은행명#1] 하나만 등장하여 문제 없음.
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 2
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲ (문맥: ... 했었는데
+상담사: 예, 지금 현재 ▲▲에서 했으니 이제 ▲▲로 [금액#6]...)
+    위치 2: ▲▲ (문맥: ..., 지금 현재 ▲▲에서 했으니 이제 ▲▲로 [금액#6] 결제가 들어갔고요, ...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 2개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 의미로 사용되었으나 서로 다른 번호가 부여됨: 상담사가 처음에 '금액#2'로 요청했으나 손님이 '금액#3'으로 답변, 이후 상담사가 '금액#3'으로 다시 언급. '금액#2'와 '금액#3'은 같은 요청 금액으로 보이나 번호가 다름.
+    문제 2 [same_entity_different_number]: 상담사가 '금액#4', '금액#5'를 서로 다른 번호로 사용했으나 문맥상 같은 요청 금액 범위 내에서 언급되어 동일 번호가 필요함.
+    문제 3 [same_entity_different_number]: 최종 요청 금액 '금액#6'이 두 번 등장하는데, 이전 요청 금액들과 번호가 다름. 만약 같은 금액이라면 번호 일치 필요.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액#2가 두 번 등장하는데, 첫 번째는 상담사가 말한 '지금 이용 가능 잔액'이고, 두 번째는 손님이 말한 '금액#2를 다 써 버리고 나야' 부분에서 같은 금액을 의미하는 것으로 보이나, 두 개가 같은 번호로 유지되어야 하는데, 대화 중 명확히 구분되지 않아 혼동 가능성이 있음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲▲ (문맥: ...드가 있었는데요, 가족 카드가 지금 ▲▲▲ 님 카드가요, 우선 가족 카드 연회...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲▲ (문맥: ...드가 있었는데요, 가족 카드가 지금 ▲▲▲ 님 카드가요, 우선 가족 카드 연회...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 1개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 개체 중 '한 달에 승인되는 금액'이 [금액#3]과 [금액#4]로 서로 다르게 태깅되어 있어 같은 개체임에도 다른 번호가 사용됨.
+    문제 2 [same_entity_different_number]: 잔여 한도 금액이 [금액#2]로 일관되게 사용되었으나, '상향 조절 후 한도'가 [금액#5]와 [금액#1]로 혼용되어 같은 개체임에도 다른 번호가 사용됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 두 번 등장하는데 서로 다른 번호로 태깅됨: 첫 번째 금액은 [금액#1], 두 번째 금액은 [금액#2], 그러나 문맥상 같은 금액일 가능성이 있음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 상담사와 손님이 같은 카드사명을 언급할 때 [카드사명#1]로 일관되게 사용했으나, 고객센터 전화번호가 서로 다른 번호 [전화번호_구성요소#1]과 [전화번호_구성요소#2]로 태깅되어 있어 같은 카드사 고객센터임에도 번호가 다름.
+    문제 2 [different_entity_same_number]: 없음
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 엔티티 번호가 일관되지 않음: [금액#1], [금액#2], [금액#3], [금액#4]가 모두 금액이지만 각각 다른 번호를 사용함. 특히, 상담사와 손님이 같은 결제 금액을 언급할 때 번호가 달라 일관성이 부족함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲ (문맥: ... 그 오늘 아침 새벽에 [금액#1] ▲▲카드를 체크라는 이름으로 결제된 게 ...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+============================================================
+[SAVED] 중간 저장 완료 (23분 35.9초 경과)
+  - 처리 완료: 60개 행 (총 CSV 인덱스: 1560/6532)
+  - 이번 저장 데이터: 30개 (VectorDB), 30개 (RDB)
+  - 전체 저장 데이터: 1561개 (VectorDB), 1561개 (RDB)
+  - 저장 소요 시간: 0.1초
+  - 메모리 초기화 완료
+  - 다음 저장까지: 약 30개 행 남음
+  - 체크포인트 업데이트: 인덱스 1560, 처리된 ID 1561개
+============================================================
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 처음에 [금액#1]로 태깅되었으나, 나중에 다른 금액 [금액#2]로 태깅되어 동일한 금액 개체에 대해 다른 번호가 사용됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲ (문맥: ...그 카드 수수료 때문에 그러는데 뭘 ▲ 뭐가 [날짜#1] 일 날 카드 그 ...)
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 여러 개체로 분류되어 있으나, 같은 금액인지 불분명하여 번호가 다르게 부여됨 (금액#2, 금액#3, 금액#4, 금액#5, 금액#6). 특히 금액#5가 할부 개월 수와 금액으로 혼용되어 번호 부여가 일관되지 않음.
+    문제 2 [same_entity_different_number]: 날짜가 날짜#1, 날짜#2, 날짜#3으로 구분되어 있으나, 날짜#2와 날짜#3이 같은 월 내 날짜인지 명확하지 않아 번호 부여가 혼동됨.
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲ (문맥: ...그 카드 수수료 때문에 그러는데 뭘 ▲ 뭐가 [날짜#1] 일 날 카드 그 ...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 1개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 [금액#3]원이 상담사와 손님이 같은 금액을 언급할 때 일관되게 사용되었으나, 손님이 사용한 금액을 [금액#4]원으로 별도로 표기하여 같은 금액인지 불명확함.
+    문제 2 [same_entity_different_number]: 결제 금액과 나머지 납부할 금액 관련 금액들이 [금액#1], [금액#2], [금액#3], [금액#4], [금액#5], [금액#6], [금액#7], [금액#8]로 각각 다르게 표기되어 있는데, 대화 흐름상 일부는 같은 금액일 가능성이 있어 번호 일관성 부족.
+    문제 3 [different_entity_same_number]: 은행명 [은행명#1]과 [은행명#2]가 서로 다른 은행임에도 불구하고 번호가 각각 다르게 부여되어 규칙에 맞음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: The entity '카드사명' is tagged as [카드사명#1] consistently, which is correct.
+    문제 2 [same_entity_different_number]: The amounts related to the virtual account and card payment are tagged as [금액#1], [금액#2], [금액#3], [금액#4], [금액#5], and [금액#6] but it is unclear if these represent the same or different amounts. For example, [금액#2] and [금액#3] seem to refer to the same card limit or payment amount but have different numbers, which violates the rule.
+    문제 3 [same_entity_different_number]: The amounts [금액#4], [금액#5], and [금액#6] appear to be related to the same transaction or refund process but are tagged with different numbers without clear distinction, which may be inconsistent.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 여러 개체로 나뉘어 태깅되었으나, 대화 흐름상 같은 금액으로 보이는 부분이 [금액#1], [금액#2], [금액#3]으로 각각 다르게 태깅되어 일관성이 부족함.
+    문제 2 [same_entity_different_number]: 날짜가 여러 개체로 나뉘어 태깅되었으나, 일부 날짜([날짜#4], [날짜#5], [날짜#6])가 같은 날짜를 지칭하는 것으로 보이나 서로 다른 번호로 태깅되어 있음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲▲ (문맥: ...사: 상담원 [상담원명#1]입니다. ▲▲▲우수 회원님 [카드사명#1]카드를 이...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲▲ (문맥: ...사: 상담원 [상담원명#1]입니다. ▲▲▲우수 회원님 [카드사명#1]카드를 이...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 1개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 엔티티가 여러 개의 번호로 분리되어 있으나, 같은 결제 내역 또는 한도 관련 금액일 가능성이 높아 번호 통일이 필요함. 예를 들어, [금액#1], [금액#2], [금액#3], [금액#4]는 모두 같은 결제 금액 관련 정보일 수 있으므로 같은 번호를 사용해야 함.
+    문제 2 [same_entity_different_number]: 카드 한도 관련 금액 [금액#5], [금액#6], [금액#8]이 같은 카드 한도 범주에 속할 가능성이 있으므로 번호 통일이 필요함.
+    문제 3 [different_entity_same_number]: 해당 대화에서는 발견되지 않음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 출금된 연회비가 [금액#2], 남은 기간에 대한 연회비가 [금액#3]으로 각각 다른 번호가 부여되었으나, 두 금액 모두 연회비라는 동일한 개체로 볼 수 있어 같은 번호를 사용해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 할부 개월 수가 [금액#2]개월로 언급되었으나, '개월' 단위에 대해 숫자 대신 금액 번호를 사용하여 혼동이 발생함. '개월'은 금액과 다른 개체이므로 별도의 번호가 필요함.
+    문제 2 [different_entity_same_number]: [금액#2]가 할부 개월 수와 금액 단위로 혼용되어 사용됨. 서로 다른 개체임에도 같은 번호가 사용되어 번호 부여 규칙에 위배됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 날짜 개체가 여러 번호로 태깅됨: [날짜#1], [날짜#2], [날짜#3], [날짜#4], [날짜#5], [날짜#6] 중 일부는 같은 날짜를 지칭하는 것으로 보이나 서로 다른 번호가 할당됨.
+    문제 2 [same_entity_different_number]: 금액 개체가 여러 번호로 태깅됨: [금액#1], [금액#2], [금액#3], [금액#4], [금액#5] 중 일부는 같은 금액을 지칭하는 것으로 보이나 서로 다른 번호가 할당됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 날짜#1이 두 번 등장했으나 서로 다른 날짜 번호(날짜#1, 날짜#3)로 표기되어 일관성이 없음.
+    문제 2 [same_entity_different_number]: 금액#4가 두 번 등장했으나 서로 다른 금액인지 불분명하며 같은 번호를 유지했으나 문맥상 다른 금액일 가능성 있음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲▲ (문맥: ...생년월일#1]
+상담사: 핸드폰 번호 ▲▲▲ 다음 몇 번입니까?
+손님: [전화번...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲▲ (문맥: ...생년월일#1]
+상담사: 핸드폰 번호 ▲▲▲ 다음 몇 번입니까?
+손님: [전화번...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 1개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 날짜가 두 개의 다른 번호([날짜#1], [날짜#2])로 태깅되었으나, 대화 내용상 같은 날짜 또는 같은 개념의 날짜로 보임.
+    문제 2 [same_entity_different_number]: 시간이 세 개([시간#1], [시간#2], [시간#3])로 태깅되었으나, 모두 '오늘 밤' 또는 같은 시간 범위를 의미하는 것으로 보임. 같은 번호를 사용해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 [금액#1]이 처음과 나중에 동일한 월 청구 금액임에도 불구하고, 중간에 [금액#2]와 [금액#3]이 각각 다른 금액으로 사용되어 혼동을 줄 수 있음. 특히 [금액#3]은 할인 쿠폰 금액으로 보이나, 같은 금액 번호를 사용하지 않아 명확하지 않음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 대화 중 '금액' 개체가 여러 번호로 분리되어 있음. 예를 들어, 손님이 요청한 한도 금액이 [금액#2], [금액#3]으로 나왔고 상담사가 제안한 금액이 [금액#4]로 다르게 번호가 부여됨. 같은 금액 개체는 같은 번호를 사용해야 함.
+    문제 2 [same_entity_different_number]: 최종 상향된 한도 금액이 [금액#5]로, 이전에 나온 금액들과 번호가 다름. 만약 같은 한도 관련 금액이라면 같은 번호를 유지해야 함.
+    문제 3 [same_entity_different_number]: 잔여 한도 금액이 [금액#6]로 별도의 번호가 부여되었으나, 잔여 한도도 한도 관련 금액으로 간주할 수 있어 번호 일관성 검토 필요.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 은행명#1과 은행명#2가 같은 은행인지 불분명하나 대화 내에서 동일 은행으로 추정되는 부분이 있어 번호가 다르게 부여됨.
+    문제 2 [same_entity_different_number]: 금액#2, 금액#3, 금액#4, 금액#5, 금액#6, 금액#7이 모두 같은 금액인지 불분명하나 일부 금액들이 같은 거래 관련 금액으로 보임에도 번호가 다르게 부여됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+============================================================
+[SAVED] 중간 저장 완료 (36분 49.0초 경과)
+  - 처리 완료: 90개 행 (총 CSV 인덱스: 1590/6532)
+  - 이번 저장 데이터: 30개 (VectorDB), 30개 (RDB)
+  - 전체 저장 데이터: 1591개 (VectorDB), 1591개 (RDB)
+  - 저장 소요 시간: 0.1초
+  - 메모리 초기화 완료
+  - 다음 저장까지: 약 30개 행 남음
+  - 체크포인트 업데이트: 인덱스 1590, 처리된 ID 1591개
+============================================================
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 전화번호가 [전화번호#1]로 동일한데, 상담사 발화에서 [전화번호_구성요소#2]로 다른 번호가 사용되어 일관성이 없음.
+    문제 2 [different_entity_same_number]: 금액이 두 개 등장하는데, 첫 번째는 [금액#1], 두 번째는 [금액#2]로 구분되어 있으나, 실제 대화에서는 같은 금액인지 불분명하여 혼동 가능.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 날짜#2가 여러 번 등장하지만 서로 다른 번호로 혼용되어 있음. 예를 들어, 상담사가 '날짜#2 달 대금' 관련 금액을 설명할 때 날짜#2가 일관되게 사용되어야 하나 일부 문장에서 다른 번호가 사용된 것으로 보임.
+    문제 2 [same_entity_different_number]: 금액#6이 날짜#3 예정 금액과 날짜#2 달 동일 금액으로 사용되었으나, 날짜#2 달에 대해 다른 금액 번호(금액#8, 금액#9)도 혼용되어 있어 일관성이 부족함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 날짜#4와 날짜#3가 서로 다른 날짜임에도 불구하고, 날짜#4 날짜#3부터 날짜#4 날짜#3까지 이용권은 날짜#4 날짜#1 날 청구된다고 하여 날짜 번호가 혼용되어 사용됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 여러 번 언급되었으나 모두 같은 금액인지 불분명하며, 금액#1부터 금액#5까지 모두 다른 번호가 부여되어 있어 같은 금액에 대해 번호가 일관되지 않음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 다르게 태깅되어야 하는데 [금액#2]와 [금액#3]이 서로 다른 금액임에도 불구하고 같은 번호로 혼용되어 태깅되지 않음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 여러 번 등장하는데 같은 금액임에도 불구하고 다른 번호가 사용됨. 예를 들어, 원금 관련 금액이 [금액#1], [금액#2], [금액#6], [금액#8], [금액#9] 등으로 번호가 다르게 태깅되어 일관성이 없음.
+    문제 2 [same_entity_different_number]: 같은 날짜 정보임에도 불구하고 [날짜#1]과 [날짜#2]가 같이 사용되어 같은 날짜인지 불명확하며, 상담사와 손님 간 동일 날짜 정보에 대해 번호가 일관되지 않음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 날짜가 여러 개 등장하는데, 같은 날짜임에도 불구하고 다른 번호가 사용됨. 예를 들어, 손님이 '[날짜#3] 달 나가고 [날짜#3] 달입니다.'라고 말했으나, 상담사는 '[날짜#3]'와 '[날짜#4]'를 별도로 태깅함.
+    문제 2 [same_entity_different_number]: 금액이 여러 개 등장하는데, 같은 금액임에도 불구하고 모두 다른 번호로 태깅되어 일관성이 없음. 예를 들어, '[금액#4]', '[금액#5]', '[금액#6]', '[금액#7]' 모두 다른 번호로 태깅되어 있으나, 대화 맥락상 일부는 같은 금액일 가능성이 있음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [different_entity_same_number]: 날짜#1이 여러 다른 날짜를 의미하는 문맥에서 동일한 번호로 사용되어 혼동을 일으킴. 예를 들어, '결제일 변경하시면 [날짜#1] 이내에 재변경이 불가능'과 '며칠로 변경하시나요? [날짜#1]이요'는 서로 다른 날짜 개념일 가능성이 있으나 같은 번호를 사용함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: The amounts referred to as [금액#2] and [금액#3] appear to represent the same amount (slightly over a certain value), but are tagged with different numbers.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+[ERROR] LLM JSON parsing failed: Expecting ',' delimiter: line 18 column 5 (char 1476)
+  위치: line 18, column 5
+  응답 길이: 1516 문자
+  문제 부분 주변:
+되는 8자리 숫자)",
+    "금액#4": "최종 결제 금액 (9자리, 수수료 포함 최종 금액)",
+    "은행명#1": "연결된 은행명 (상담사 언급, 단일 개체)"
+    "날짜#1": "결제일 (▲▲월 ▲▲일, 마스킹 안된 날짜)"
+  }
+}
+                                                                                                        ^
+  [DEBUG] 에러 로그 저장됨: C:\Users\AI-WS01\projects\call-act\data-preprocessing\preprocess\hana\test_results\error_logs\json_error_1767794693.txt
+
+[RETRY 1/3] JSON 파싱 실패, 5초 후 재시도...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액#3은 선결제 금액과 수수료 포함 금액으로 보이나, 선결제 금액과 수수료 포함 금액이 각각 금액#1, 금액#2로 태깅되었음. 금액#3은 금액#2와 동일한 개체로 보이므로 같은 번호를 사용해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 일시불 할부 총 한도 금액이 여러 번호로 태깅됨 ([금액#1], [금액#13], [금액#17])이지만 같은 개체임.
+    문제 2 [same_entity_different_number]: 현금 서비스 단기 카드 대출 금액이 여러 번호로 태깅됨 ([금액#5], [금액#8], [금액#10], [금액#11], [금액#12])이지만 같은 개체임.
+    문제 3 [same_entity_different_number]: 상향 요청 금액이 여러 번호로 태깅됨 ([금액#2], [금액#3], [금액#14], [금액#15], [금액#16])이지만 같은 개체로 보임.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+============================================================
+[SAVED] 중간 저장 완료 (49분 51.2초 경과)
+  - 처리 완료: 120개 행 (총 CSV 인덱스: 1620/6532)
+  - 이번 저장 데이터: 30개 (VectorDB), 30개 (RDB)
+  - 전체 저장 데이터: 1621개 (VectorDB), 1621개 (RDB)
+  - 저장 소요 시간: 0.1초
+  - 메모리 초기화 완료
+  - 다음 저장까지: 약 30개 행 남음
+  - 체크포인트 업데이트: 인덱스 1620, 처리된 ID 1621개
+============================================================
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 결제금액이 두 번 등장하는데 서로 다른 번호(금액#1, 금액#2)로 태깅되어 있음. 같은 결제금액이라면 같은 번호를 사용해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 2
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲ (문맥: ...지금 카드에
+손님: 뭐 교육 급여가 ▲▲ 해가지고 돈이 [금액#1] 얼마가 ...)
+    위치 2: ▲▲ (문맥: ...: 예, 그런데 요게.
+손님: 제가 ▲▲ 택시를 타고 다니는데 택시를 타면 ...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: The entity '카드사명' is tagged with two different numbers (#1 and #2) but refers to the same card company.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: The entity '카드사명' is assigned both #1 and #2 for what appears to be the same card company, violating the rule that the same entity must have the same number.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 2
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲▲▲ (문맥: ...청구 단위가 청구 번호가 2개세요. ▲▲▲▲번 ▲▲번
+손님: 예, 같이 지금.
+...)
+    위치 2: ▲▲ (문맥: ... 청구 번호가 2개세요. ▲▲▲▲번 ▲▲번
+손님: 예, 같이 지금.
+상담사:...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 2
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲▲▲ (문맥: ...청구 단위가 청구 번호가 2개세요. ▲▲▲▲번 ▲▲번
+손님: 예, 같이 지금.
+...)
+    위치 2: ▲▲ (문맥: ... 청구 번호가 2개세요. ▲▲▲▲번 ▲▲번
+손님: 예, 같이 지금.
+상담사:...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 2개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲ (문맥: ...요, 내 말은 그 사용이 예를 들어 ▲▲부일터 매달 [날짜#2]까지 그 한도...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 '정기 한도'가 여러 번 언급되었으나 [금액#3]과 [금액#2]가 혼용되어 일관성이 없음. 예를 들어, 상담사가 '총 한도가 [금액#2]'라고 했으나 이후 정기 한도 관련 금액은 [금액#3]으로 표기되어 같은 개체임에도 다른 번호가 부여됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: [날짜#1]과 [날짜#2]가 같은 날짜인지 불분명하나, 대화 내에서 동일한 날짜로 사용된 것으로 보임에도 서로 다른 번호([날짜#1], [날짜#2])가 사용되어 일관성 부족.
+    문제 2 [different_entity_same_number]: [금액#2]와 [금액#3]이 서로 다른 금액으로 보이나, 번호가 다르게 부여되어 문제 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: [금액#2], [금액#3], [금액#4], [금액#5]가 모두 같은 청구 금액 관련 금액으로 보이나 서로 다른 번호가 부여됨.
+    문제 2 [same_entity_different_number]: [날짜#1]과 [날짜#2]가 서로 다른 날짜로 보이나 대화 중 날짜의 의미가 혼재되어 있어 번호 부여가 일관되지 않음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 엔티티 번호가 일관되지 않음. 예를 들어, '금액#1'부터 '금액#11'까지 여러 번호가 사용되었으나, 같은 금액인지 여부가 불분명하고 같은 금액에 대해 다른 번호가 부여된 것으로 보임.
+    문제 2 [same_entity_different_number]: 상담원명은 처음과 마지막에 모두 [상담원명#1]로 일관되게 사용되어 문제 없음.
+    문제 3 [different_entity_same_number]: 날짜 엔티티가 [날짜#1], [날짜#2], [날짜#3]으로 각각 다른 번호를 사용하여 적절함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 처음에 [금액#1]로 언급되었으나, 이후 같은 승인 금액이 [금액#2]와 [금액#3]으로 다른 번호가 부여됨.
+    문제 2 [same_entity_different_number]: 날짜가 [날짜#1]월 [날짜#2]일로 일관되게 언급되었으나, 환불 진행 날짜가 [날짜#3]으로 다른 번호가 부여됨. 날짜의 의미가 다를 수 있으나 명확한 구분이 필요.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 2
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲ (문맥: ...: [계좌번호_구성요소#1]
+손님: ▲가 2개요, [계좌번호_구성요소#2]...)
+    위치 2: ▲ (문맥: ...5] 맞으십니까?
+손님: 네, 네. ▲가 2개고 [전화번호#1].
+상담사:...)
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 계좌 번호 구성요소가 [계좌번호_구성요소#4]와 [계좌번호_구성요소#5], [계좌번호_구성요소#6]로 분리되어 있으나, [계좌번호_구성요소#6]이 마지막에 다시 등장할 때 번호가 일관되지 않음.
+    문제 2 [same_entity_different_number]: [전화번호#1]이 계좌번호 구성요소로도 사용되어 번호가 혼용되고 있음. 전화번호와 계좌번호는 다른 개체이므로 번호가 달라야 함.
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 2
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲ (문맥: ...: [계좌번호_구성요소#1]
+손님: ▲가 2개요, [계좌번호_구성요소#2]...)
+    위치 2: ▲ (문맥: ...5] 맞으십니까?
+손님: 네, 네. ▲가 2개고 [전화번호#1].
+상담사:...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 2개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 개체가 [금액#1], [금액#2], [금액#3]으로 각각 다르게 태깅되었으나, 대화 내용상 모두 이번 달 청구 금액 또는 관련 금액으로 동일 개체로 보임.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+============================================================
+[SAVED] 중간 저장 완료 (62분 57.7초 경과)
+  - 처리 완료: 150개 행 (총 CSV 인덱스: 1650/6532)
+  - 이번 저장 데이터: 30개 (VectorDB), 30개 (RDB)
+  - 전체 저장 데이터: 1651개 (VectorDB), 1651개 (RDB)
+  - 저장 소요 시간: 0.1초
+  - 메모리 초기화 완료
+  - 다음 저장까지: 약 30개 행 남음
+  - 체크포인트 업데이트: 인덱스 1650, 처리된 ID 1651개
+============================================================
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 의미의 한도임에도 불구하고 [금액#2], [금액#3], [금액#4]로 각각 다른 번호가 사용됨. 같은 한도 금액은 같은 번호를 사용해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 슬롯에서 같은 한도 금액을 나타내는 [금액#3], [금액#4], [금액#5]가 서로 다르게 번호가 부여되어 일관성이 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 개체임에도 불구하고 서로 다른 번호가 부여됨. 예를 들어, 손님이 한도 상향 요청 시 '한 [금액#1]원으로 올려주세요'라고 했으나 상담사가 '지금 한도 [금액#2]원에 [금액#3] 추가해서 [금액#4]원'이라고 하여 같은 금액임에도 번호가 다름.
+    문제 2 [same_entity_different_number]: 상담사가 '그럼 그대로 [금액#5]원으로 해 드리고요, 요청하신 [금액#6]원 한도까지'라고 하여 같은 요청 금액임에도 번호가 다름.
+    문제 3 [same_entity_different_number]: 최종 한도 금액 '[금액#8]원'이 이전에 언급된 금액들과 번호가 일치하지 않음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 서비스업체명#1과 서비스업체명#2는 같은 '서비스업체명'으로 보이나 서로 다른 번호가 부여됨.
+    문제 2 [same_entity_different_number]: 금액#2, 금액#3, 금액#4, 금액#5, 금액#6, 금액#7이 모두 같은 금액 단위로 보이나 각각 다른 번호가 부여되어 일관성이 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 대화 내에서 [금액#1], [금액#2], [금액#3], [금액#4]로 각각 다른 번호가 사용되어 일관성이 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 처음에 [금액#1]로 태깅되었으나, 이후 같은 금액이 [금액#2]로 태깅되어 일관성이 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 개체들이 일관되지 않음. 예를 들어, 잔여 한도 금액이 [금액#2], [금액#3], [금액#5] 등으로 다르게 태깅되어 같은 개체임에도 번호가 다름.
+    문제 2 [same_entity_different_number]: 상담원명은 [상담원명#1]로 일관되게 태깅되어 문제 없음.
+    문제 3 [same_entity_different_number]: 은행명은 [은행명#1]로 일관되게 태깅되어 문제 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 결제 건임에도 불구하고 상담사와 손님이 각각 [금액#1]과 [금액#2]로 다른 번호를 사용함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 카드사명이 처음에 [카드사명#1]로 언급되었으나, 상담사가 다시 언급할 때 [카드사명#2]로 다른 번호를 사용함. 같은 카드사명을 가리키는 것으로 보이므로 번호가 일치해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 처음에 [금액#1]원으로 언급되었으나, 상담사가 확인한 총 한도는 [금액#2]원으로 다르게 태깅되어 같은 금액임에도 다른 번호가 사용됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: [카드사명#2]과 [카드사명#3]이 서로 다른 번호를 사용했으나, 대화 내용상 같은 카드사명으로 보임. 따라서 같은 번호를 사용해야 함.
+    문제 2 [different_entity_same_number]: [금액#1]과 [금액#2]가 서로 다른 금액임에도 불구하고 다른 번호를 사용한 것은 적절함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액#1이 동일한 결제 대금임에도 불구하고 대화 중 금액#4로도 언급되어 서로 다른 번호가 부여됨.
+    문제 2 [same_entity_different_number]: 금액#3이 최소 금액으로 두 번 언급되었으나 같은 번호를 유지하여 문제 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 개체가 [금액#1], [금액#2], [금액#3], [금액#4], [금액#5]로 각각 다르게 태깅되었으나, 대화 내용상 동일하거나 관련된 금액들이 혼재되어 있어 번호 일관성이 부족함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 개체가 일관되지 않음: '보증금'으로 언급된 금액이 [금액#2], [금액#4], [금액#5]로 각각 다른 번호가 부여되어 있으나, 모두 보증금 또는 누적금액으로 동일한 개체로 보임.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+============================================================
+[SAVED] 중간 저장 완료 (74분 40.6초 경과)
+  - 처리 완료: 180개 행 (총 CSV 인덱스: 1680/6532)
+  - 이번 저장 데이터: 30개 (VectorDB), 30개 (RDB)
+  - 전체 저장 데이터: 1681개 (VectorDB), 1681개 (RDB)
+  - 저장 소요 시간: 0.1초
+  - 메모리 초기화 완료
+  - 다음 저장까지: 약 30개 행 남음
+  - 체크포인트 업데이트: 인덱스 1680, 처리된 ID 1681개
+============================================================
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [different_entity_same_number]: 전화번호#1이 금액 총액을 나타내는 슬롯으로 사용되어 잘못된 번호 할당임.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 두 번 언급되었으나 서로 다른 번호([금액#1], [금액#2])가 부여됨. 같은 금액일 가능성이 높으므로 같은 번호를 사용해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 개체에서 [금액#1]과 [금액#3]이 같은 금액을 의미하는 것으로 보이나 서로 다른 번호가 사용됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 개체임에도 불구하고 [금액#1], [금액#2], [금액#3]으로 서로 다른 번호가 부여됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 '한 [금액#1]원이 나오는데'와 '이번 [날짜#1]월 [날짜#2]일 날 이제 청구된 금액이 일단 [금액#1]으로 조회가 되고 있고요'는 같은 금액임에도 불구하고 이후에 '총 [금액#1]으로 조회가 되시네요'와 '청구할인 포함돼서 나온 금액이 [금액#1]으로 확인됩니다'로 일관되게 사용되어 문제 없음. 그러나 '[금액#3]원 내고 그거까지거든요'와 '[금액#3]원밖에'가 서로 다른 맥락에서 사용되었으나 같은 번호를 사용해 혼동 가능.
+    문제 2 [same_entity_different_number]: 손님이 처음에 '[금액#4]원으로 나와있어서'라고 말한 금액과 상담사가 '사용하신 게 [금액#4]원이시라고요'라고 확인하는 부분은 일치하나, 이후 '[금액#6] 뭐 쓴 게 [금액#4]원인데'에서 '[금액#6]'과 '[금액#4]'가 혼용되어 있어 번호 부여가 혼란스러움.
+    문제 3 [different_entity_same_number]: 금액 번호 '[금액#1]'이 여러 번 일관되게 사용되고 있으나, '[금액#1]원이 나오는데'와 '총 [금액#1]으로 조회가 되시네요'는 같은 금액으로 보이나, 할인 금액 '[금액#5]원'과 청구 할인 '[금액#8]원'이 각각 다른 개체임에도 불구하고 번호가 다르게 부여되어 문제 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 결제 금액임에도 불구하고 [금액#1]과 [금액#2]가 서로 다른 번호로 태깅됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 개체임에도 불구하고 [금액#3]과 [금액#5]가 다른 번호로 태깅됨. 대화에서 [금액#3] 크로네와 [금액#5] 크로네는 동일한 금액을 의미하므로 같은 번호를 사용해야 함.
+    문제 2 [same_entity_different_number]: 금액이 같은 개체임에도 불구하고 [금액#1]과 [금액#2]가 다른 번호로 태깅됨. 대화 맥락상 같은 승인 금액을 의미하므로 같은 번호를 사용해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 날짜가 모두 [날짜#1]로 태깅되었으나, 대화 중 날짜가 여러 번 반복되면서 서로 다른 날짜를 의미할 가능성이 있음. 그러나 대화 흐름상 같은 날짜를 반복하는 것으로 보아 번호는 일관되나, 날짜가 토요일인지 평일인지 구분되어야 하므로 명확하지 않음.
+    문제 2 [different_entity_same_number]: 은행명이 [은행명#1], [은행명#2], [은행명#3]로 태깅되었으나, 상담사가 [은행명#2]으로 발송하겠다고 하여 [은행명#3]과 다른 은행임에도 번호가 다르게 태깅되어 일관성 있음. 문제 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 두 번 등장하는데 서로 다른 번호([금액#1], [금액#2])가 부여되어 있어 같은 금액임에도 다른 번호가 사용됨.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액#2, 금액#3, 금액#4이 모두 상환 관련 금액으로 보이나 서로 다른 번호가 부여되어 있어 같은 번호를 사용해야 함.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲ (문맥: ...이용 가능하십니다.
+손님: 아까 뭐 ▲▲ 뭐가 얼마가 뭐 나갔다고요?
+상담사...)
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.300 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 같은 의미로 사용되었으나 서로 다른 번호가 부여됨. 예를 들어, [금액#1]과 [금액#2]는 같은 선결제 금액으로 보이나 번호가 다름.
+    문제 2 [same_entity_different_number]: 출금 가능한 금액과 관련된 금액들이 여러 번호로 분리되어 일관성이 없음. 예: [금액#12]와 [금액#13]은 같은 이용 가능한 금액으로 보이나 번호가 다름.
+    문제 3 [same_entity_different_number]: 상담사와 손님이 같은 고객명을 확인할 때 [고객명#1]로 일관되었으나, 다른 금액 태그들이 일관되지 않음.
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲ (문맥: ...이용 가능하십니다.
+손님: 아까 뭐 ▲▲ 뭐가 얼마가 뭐 나갔다고요?
+상담사...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 1개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 전화번호가 처음에 [전화번호#1]로 태깅되었으나, 후반부에 [전화번호#2]로 다른 번호가 사용되어 일관성이 없음.
+    문제 2 [same_entity_different_number]: 금액이 처음에 [금액#1]로 태깅되었으나, 후반부에 [금액#2]로 다른 번호가 사용되어 일관성이 없음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.600 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 개체들이 일관되게 같은 번호를 사용하지 않고 있음. 예를 들어, '이번 달 결제하실 금액'은 [금액#1]로 시작했으나 이후 관련 금액들이 [금액#2], [금액#3], [금액#4], [금액#5], [금액#6], [금액#7], [금액#8], [금액#9], [금액#10], [금액#11], [금액#12], [금액#13], [금액#14], [금액#15] 등으로 각각 다른 번호가 부여되어 있어 같은 금액인지 구분이 어려움.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲▲▲ (문맥: ... 휴대폰 번호는 [전화번호#1]번, ▲▲▲입니다.
+상담사: 네.
+상담사: 손님...)
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [different_entity_same_number]: 날짜 슬롯에서 [날짜#1]과 [날짜#6]년이 같은 번호로 태깅되었으나 서로 다른 연도로 보임.
+    문제 2 [different_entity_same_number]: 팩스번호 구성요소들이 모두 같은 번호 [팩스번호_구성요소#1]로 태깅되어 각각 다른 번호가 필요함.
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲ (문맥: ...스업체명#1] 혹시 [금액#2]원을 ▲으로 충전하실 때 [금액#3]로 충전...)
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액이 처음에 [금액#1]원으로 언급되었으나 이후에 [금액#2], [금액#3]으로 다른 번호가 부여되어 같은 금액인지 불명확함.
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[RETRY 2] Validation failed, retrying...
+  [MASK_CHECK FAILED] 남은 ▲ 개수: 1
+  [DEBUG] 남은 ▲ 위치 (최대 3개):
+    위치 1: ▲ (문맥: ...스업체명#1] 혹시 [금액#2]원을 ▲으로 충전하실 때 [금액#3]로 충전...)
+  [ACTION] 남은 ▲ 처리 위해 LLM 재호출...
+
+[WARNING] 최종 검증 후에도 ▲ 1개 남아있음. [개인정보]로 강제 처리합니다.
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.700 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 금액 관련 개체가 일관되지 않음: '오백만 원' 사용 가능 금액이 처음 언급되었으나, 이후 '금액#1', '금액#2', '금액#3'으로 서로 다른 번호가 부여되어 같은 금액 개체로 추정됨에도 번호가 다름.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+[RETRY 1] Validation failed, retrying...
+  [ENTITY_CHECK FAILED] 일관성 점수: 0.800 (기준: 0.9)
+  [DEBUG] 발견된 문제점 (최대 3개):
+    문제 1 [same_entity_different_number]: 은행명#1과 은행명#2는 서로 다른 번호를 사용하여 올바르나, 대화 중 '은행명#2'가 두 번 등장할 때 번호가 일관되게 유지되어 문제 없음.
+    문제 2 [same_entity_different_number]: 고객명#1이 두 번 등장할 때 모두 같은 번호를 사용하여 일관성 있음.
+    문제 3 [same_entity_different_number]: 카드상품명#1이 두 번 등장할 때 모두 같은 번호를 사용하여 일관성 있음.
+  [ACTION] Entity 일관성 개선 위해 LLM 재호출...
+
+============================================================
+[INTERRUPTED] 사용자 중단 감지 (88분 3.9초 경과)
+  - 처리 완료: 207개 행
+  - 마지막 CSV 인덱스: 1707/6532
+  - 메모리 상태: 27개 (VectorDB), 27개 (RDB) 남음
+  - 저장 중...
+[SAVED] 중단 시점까지 저장 완료:
+  - 저장된 데이터: 27개 (VectorDB), 27개 (RDB)
+  - 전체 저장 데이터: 1708개 (VectorDB), 1708개 (RDB)
+  - 저장 소요 시간: 0.1초
+  - 재시작: python preprocess/hana/preprocess_hana.py --resume
+============================================================

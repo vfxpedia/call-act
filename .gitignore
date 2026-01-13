@@ -144,6 +144,11 @@ ENV/
 env.bak/
 venv.bak/
 
+# DB Loading scripts - temporary files (backend_dev)
+backend_dev/app/db/scripts/embedding_checkpoint.json
+backend_dev/app/db/scripts/embedding_generation.log
+backend_dev/app/db/scripts/.env
+
 # Spyder project settings
 .spyderproject
 .spyproject
