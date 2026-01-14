@@ -62,7 +62,7 @@ export default function Header() {
   };
   
   return (
-    <header className="h-[60px] bg-white border-b border-[#E0E0E0] flex items-center justify-between px-3 sm:px-6 fixed top-0 left-0 right-0 z-10">
+    <header className="h-[60px] bg-white border-b border-[#E0E0E0] flex items-center justify-between px-3 sm:px-6 fixed top-0 left-0 right-0 z-50">
       {/* Left Side - Logo & Mobile Menu */}
       <div className="flex items-center gap-2">
         {/* Mobile Menu Button (lg 미만에서만 표시) */}

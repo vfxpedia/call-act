@@ -33,3 +33,13 @@ body {
   scrollbar-width: thin;
   scrollbar-color: #D0D0D0 #F5F5F5;
 }
+
+/* 스크롤바 숨기기 유틸리티 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

@@ -48,7 +48,7 @@ END $$;
 
 -- 3. service_guide_documents 테이블 생성
 CREATE TABLE IF NOT EXISTS service_guide_documents (
-    id VARCHAR(50) PRIMARY KEY,
+    id VARCHAR(100) PRIMARY KEY,
     document_type VARCHAR(50),
     category VARCHAR(100),
     title VARCHAR(300) NOT NULL,

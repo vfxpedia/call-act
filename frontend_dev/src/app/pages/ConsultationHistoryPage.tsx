@@ -9,7 +9,6 @@ import { consultationsData } from '../../data/mockData';
 export default function ConsultationHistoryPage() {
   const [consultations] = useState(consultationsData.map(c => ({
     ...c,
-    title: c.memo || '상담 내용',
     date: c.datetime.split(' ')[0],
     time: c.datetime.split(' ')[1]
   })));
@@ -140,7 +139,7 @@ export default function ConsultationHistoryPage() {
                         {consultation.category}
                       </span>
                     </td>
-                    <td className="px-2.5 py-2.5 text-xs text-[#333333] truncate max-w-[200px]">{consultation.title}</td>
+                    <td className="px-2.5 py-2.5 text-xs text-[#333333] truncate max-w-[200px]">{consultation.content}</td>
                     <td className="px-2 py-2.5 text-xs text-[#666666] text-center">{consultation.customer}</td>
                     <td className="px-2 py-2.5 text-xs text-[#666666] text-center">{consultation.agent}</td>
                     <td className="px-2 py-2.5 text-center">

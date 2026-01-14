@@ -1,0 +1,55 @@
+# 📋 Archive로 이동할 루트 폴더 문서 목록
+
+다음 명령어를 실행하여 루트 폴더의 문서들을 archive로 이동하세요:
+
+## Git 명령어 (권장)
+```bash
+git mv ATTRIBUTIONS.md docs/archive/
+git mv BACKEND_INTEGRATION.md docs/archive/
+git mv FINAL_SUMMARY.md docs/archive/
+git mv KEYWORD_DISPLAY_FIX.md docs/archive/
+git mv KEYWORD_SYNC_AND_DIALOGUE_FIX.md docs/archive/
+git mv REVIEW_REPORT.md docs/archive/
+git mv SYNC_FIX_EXPLANATION.md docs/archive/
+git mv TECHNICAL_ANSWERS.md docs/archive/
+git mv TEMP_KEYWORD_MAP_SECTION.txt docs/archive/
+```
+
+## 또는 일반 mv 명령어
+```bash
+mv ATTRIBUTIONS.md docs/archive/
+mv BACKEND_INTEGRATION.md docs/archive/
+mv FINAL_SUMMARY.md docs/archive/
+mv KEYWORD_DISPLAY_FIX.md docs/archive/
+mv KEYWORD_SYNC_AND_DIALOGUE_FIX.md docs/archive/
+mv REVIEW_REPORT.md docs/archive/
+mv SYNC_FIX_EXPLANATION.md docs/archive/
+mv TECHNICAL_ANSWERS.md docs/archive/
+mv TEMP_KEYWORD_MAP_SECTION.txt docs/archive/
+```
+
+## 파일 설명
+
+1. **ATTRIBUTIONS.md** - 라이선스 정보 (shadcn/ui, Unsplash)
+2. **BACKEND_INTEGRATION.md** - 백엔드 연동 가이드 (초안)
+3. **FINAL_SUMMARY.md** - 시스템 개선 완료 보고서
+4. **KEYWORD_DISPLAY_FIX.md** - 키워드 표시 수정 내역
+5. **KEYWORD_SYNC_AND_DIALOGUE_FIX.md** - 키워드 동기화 수정
+6. **REVIEW_REPORT.md** - 코드 리뷰 보고서
+7. **SYNC_FIX_EXPLANATION.md** - 동기화 수정 설명
+8. **TECHNICAL_ANSWERS.md** - 기술 질문 답변
+9. **TEMP_KEYWORD_MAP_SECTION.txt** - 임시 키워드 맵
+
+---
+
+이동 후 확인:
+```bash
+ls docs/archive/    # 9개 파일이 있어야 함
+ls *.md             # README.md만 있어야 함 (또는 아무것도 없음)
+```
+
+커밋:
+```bash
+git add .
+git commit -m "chore: 루트 폴더 문서들을 docs/archive로 이동"
+```

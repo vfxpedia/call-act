@@ -12,6 +12,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const { isSidebarExpanded, setIsSidebarExpanded, isPinned, setIsPinned } = useSidebar();
   const location = useLocation();
 
+  // 상담 페이지 여부 확인 (fixed layout 페이지)
+  const isConsultationPage = location.pathname === '/consultation' || location.pathname === '/consultation/live';
+
   // 최초 호버 시 자동으로 고정
   const handleMouseEnter = () => {
     setIsSidebarExpanded(true);
@@ -42,7 +45,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
       
       {/* 사이드바가 항상 표시되므로 메인 콘텐츠에 왼쪽 마진 추가 (데스크톱만) */}
       <main 
-        className={`mt-[60px] transition-all duration-300 ${isSidebarExpanded ? 'lg:ml-[200px]' : 'lg:ml-[56px]'}`}
+        className={`
+          ${!isConsultationPage ? 'mt-[60px]' : ''} 
+          transition-all duration-300 
+          ${!isConsultationPage ? (isSidebarExpanded ? 'lg:ml-[200px]' : 'lg:ml-[56px]') : ''}
+        `}
         onClick={handleMainClick}
       >
         {children}

@@ -96,6 +96,33 @@ export default function DashboardPage() {
   const handleAnnouncementClick = (announcement: any) => {
     setSelectedAnnouncement(announcement);
     setIsAnnouncementModalOpen(true);
+    
+    // 조회수 증가
+    setAnnouncements(prev => {
+      const updatedAnnouncements = prev.map(n =>
+        n.id === announcement.id ? { ...n, views: n.views + 1 } : n
+      );
+      
+      // LocalStorage 전체 공지사항 업데이트
+      const savedNotices = localStorage.getItem('notices');
+      if (savedNotices) {
+        try {
+          const allNotices = JSON.parse(savedNotices);
+          const updatedAllNotices = allNotices.map((n: any) =>
+            n.id === announcement.id ? { ...n, views: n.views + 1 } : n
+          );
+          localStorage.setItem('notices', JSON.stringify(updatedAllNotices));
+          
+          // 고정 공지사항만 필터링해서 저장
+          const pinnedNotices = updatedAllNotices.filter((n: any) => n.pinned);
+          localStorage.setItem('pinnedAnnouncements', JSON.stringify(pinnedNotices));
+        } catch (e) {
+          console.error('Failed to update views', e);
+        }
+      }
+      
+      return updatedAnnouncements;
+    });
   };
 
   const handleNoticeClick = () => {

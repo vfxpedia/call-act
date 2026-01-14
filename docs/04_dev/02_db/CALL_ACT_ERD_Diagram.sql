@@ -208,7 +208,7 @@ CREATE TABLE "inquiry_view_log" (
 );
 
 CREATE TABLE "service_guide_documents" (
-  "id" varchar(50) PRIMARY KEY,
+  "id" varchar(100) PRIMARY KEY,
   "document_type" varchar(50),
   "category" varchar(100),
   "title" varchar(300) NOT NULL,

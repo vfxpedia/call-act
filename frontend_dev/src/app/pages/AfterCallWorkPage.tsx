@@ -124,7 +124,7 @@ export default function AfterCallWorkPage() {
 
   return (
     <MainLayout>
-      <div className="h-[calc(100vh-60px)] flex bg-[#F5F5F5] relative">
+      <div className="min-h-[calc(100vh-60px)] flex bg-white relative">
         {/* 모바일/태블릿 탭 네비게이션 (lg 미만에서만 표시) */}
         <div className="lg:hidden fixed top-[60px] left-0 right-0 bg-white border-b border-[#E0E0E0] z-50 flex">
           <button

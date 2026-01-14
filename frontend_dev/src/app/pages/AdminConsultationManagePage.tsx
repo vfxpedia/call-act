@@ -1,7 +1,7 @@
 import MainLayout from '../components/layout/MainLayout';
 import { Search, Play, Pause, Download, Eye, Star, StarOff } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ConsultationDetailModal from '../components/modals/ConsultationDetailModal';
 import React from 'react';
@@ -14,9 +14,12 @@ export default function AdminConsultationManagePage() {
   const [playingRow, setPlayingRow] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration] = useState(312); // 5:12 in seconds
+  const [duration, setDuration] = useState(312); // 5:12 in seconds
   const [selectedConsultation, setSelectedConsultation] = useState<any>(null);
   const [isConsultationModalOpen, setIsConsultationModalOpen] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const [filters, setFilters] = useState({
     dateFrom: '',
@@ -25,6 +28,47 @@ export default function AdminConsultationManagePage() {
     category: '전체',
     status: '전체',
   });
+
+  // 오디오 재생/정지 관리
+  useEffect(() => {
+    if (!audioRef.current) return;
+    
+    if (isPlaying) {
+      audioRef.current.play();
+    } else {
+      audioRef.current.pause();
+    }
+  }, [isPlaying]);
+
+  // 오디오 시간 업데이트
+  useEffect(() => {
+    if (!audioRef.current) return;
+    
+    const audio = audioRef.current;
+    
+    const updateTime = () => {
+      setCurrentTime(Math.floor(audio.currentTime));
+    };
+    
+    const updateDuration = () => {
+      setDuration(Math.floor(audio.duration));
+    };
+    
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+    
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('ended', handleEnded);
+    
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [playingRow]);
 
   const handleRowSelect = (id: string) => {
     setSelectedRows(prev => 
@@ -62,7 +106,20 @@ export default function AdminConsultationManagePage() {
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCurrentTime(parseInt(e.target.value));
+    const newTime = parseInt(e.target.value);
+    setCurrentTime(newTime);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+    }
+  };
+
+  // 재생 속도 변경
+  const handlePlaybackRateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const rate = parseFloat(e.target.value);
+    setPlaybackRate(rate);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = rate;
+    }
   };
 
   // 우수사례 토글 기능
@@ -104,10 +161,10 @@ export default function AdminConsultationManagePage() {
 
   return (
     <MainLayout>
-      <div className="h-[calc(100vh-60px)] flex flex-col p-3 sm:p-4 gap-3 bg-[#F5F5F5] overflow-y-auto">
+      <div className="h-[calc(100vh-60px)] flex flex-col p-3 gap-3 bg-[#F5F5F5] overflow-hidden">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border border-[#E0E0E0] p-3 flex-shrink-0">
-          <h1 className="text-base font-bold text-[#333333]">상담 관리</h1>
+          <h1 className="text-lg font-bold text-[#333333]">상담 관리</h1>
         </div>
 
         {/* 필터 바 */}
@@ -214,7 +271,7 @@ export default function AdminConsultationManagePage() {
             <table className="w-full">
               <thead className="border-b-2 border-[#E0E0E0] sticky top-0 bg-white z-10">
                 <tr>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-10">
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[50px] w-[50px]">
                     <input 
                       type="checkbox"
                       checked={selectedRows.length === filteredConsultations.length && filteredConsultations.length > 0}
@@ -222,17 +279,17 @@ export default function AdminConsultationManagePage() {
                       className="w-4 h-4 cursor-pointer"
                     />
                   </th>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-[110px]">상담 ID</th>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-[70px]">상담사</th>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-[70px]">고객명</th>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-[85px]">카테고리</th>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-[70px]">상태</th>
-                  <th className="text-left text-[10px] font-semibold text-[#666666] px-2.5 py-2">상담 내용</th>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-[95px]">일시</th>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-[70px]">통화시간</th>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-12">재생</th>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-12">상세</th>
-                  <th className="text-center text-[10px] font-semibold text-[#666666] px-2 py-2 w-16">우수사례</th>
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[110px] w-[110px]">상담 ID</th>
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[80px] w-[80px]">상담사</th>
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[80px] w-[80px]">고객명</th>
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[100px] w-[100px]">카테고리</th>
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[80px] w-[80px]">상태</th>
+                  <th className="text-left text-xs font-semibold text-[#666666] px-3 py-3 min-w-[200px]">상담 내용</th>
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[110px] w-[110px]">일시</th>
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[80px] w-[80px]">통화시간</th>
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[60px] w-[60px]">재생</th>
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[60px] w-[60px]">상세</th>
+                  <th className="text-center text-xs font-semibold text-[#666666] px-3 py-3 min-w-[90px] w-[90px]">우수사례</th>
                 </tr>
               </thead>
               <tbody>
@@ -247,7 +304,7 @@ export default function AdminConsultationManagePage() {
                         playingRow === item.id ? 'bg-[#F8F9FA]' : ''
                       }`}
                     >
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-3 py-3 text-center">
                         <input 
                           type="checkbox"
                           checked={selectedRows.includes(item.id)}
@@ -255,34 +312,34 @@ export default function AdminConsultationManagePage() {
                           className="w-4 h-4 cursor-pointer"
                         />
                       </td>
-                      <td className="px-2 py-2 text-center">
-                        <span className="text-[10px] text-[#0047AB] font-mono font-semibold whitespace-nowrap">{item.id}</span>
+                      <td className="px-3 py-2 text-center">
+                        <span className="text-xs text-[#0047AB] font-mono font-semibold whitespace-nowrap">{item.id}</span>
                       </td>
-                      <td className="px-2 py-2 text-[10px] text-[#666666] text-center">{item.agent}</td>
-                      <td className="px-2 py-2 text-[10px] text-[#666666] text-center">{item.customer}</td>
-                      <td className="px-2 py-2 text-center">
-                        <span className="text-[10px] px-1.5 py-0.5 bg-[#E8F1FC] text-[#0047AB] rounded inline-block whitespace-nowrap">
+                      <td className="px-3 py-2 text-xs text-[#666666] text-center whitespace-nowrap">{item.agent}</td>
+                      <td className="px-3 py-2 text-xs text-[#666666] text-center whitespace-nowrap">{item.customer}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className="text-xs px-2 py-1 bg-[#E8F1FC] text-[#0047AB] rounded inline-block whitespace-nowrap">
                           {item.category}
                         </span>
                       </td>
-                      <td className="px-2 py-2 text-center">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded inline-block whitespace-nowrap ${
+                      <td className="px-3 py-2 text-center">
+                        <span className={`text-xs px-2 py-1 rounded inline-block whitespace-nowrap ${
                           item.status === '완료' ? 'bg-[#E8F5E9] text-[#34A853]' :
                           item.status === '진행중' ? 'bg-[#E3F2FD] text-[#0047AB]' :
-                          'bg-[#F5F5F5] text-[#999999]'
+                          'bg-[#FFEBEE] text-[#EA4335]'
                         }`}>
                           {item.status}
                         </span>
                       </td>
-                      <td className="px-2.5 py-2 text-[10px] text-[#333333] truncate max-w-[200px]">{item.memo}</td>
-                      <td className="px-2 py-2 text-center">
-                        <div className="text-[10px] text-[#666666]">
-                          <div className="font-medium">{date}</div>
-                          <div className="text-[#999999] font-mono">{time}</div>
+                      <td className="px-3 py-2 text-xs text-[#333333]">{item.content}</td>
+                      <td className="px-3 py-2 text-center">
+                        <div className="text-xs text-[#666666] whitespace-nowrap">
+                          <div>{date}</div>
+                          <div className="text-[10px] text-[#999999]">{time}</div>
                         </div>
                       </td>
-                      <td className="px-2 py-2 text-[10px] text-[#666666] font-mono text-center">{item.duration}</td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-3 py-2 text-xs text-[#666666] text-center whitespace-nowrap">{item.duration}</td>
+                      <td className="px-3 py-3 text-center">
                         <button 
                           onClick={() => handlePlayClick(item.id)}
                           className="w-6 h-6 flex items-center justify-center hover:bg-[#E8F1FC] rounded transition-colors mx-auto"
@@ -290,7 +347,7 @@ export default function AdminConsultationManagePage() {
                           <Play className="w-3.5 h-3.5 text-[#0047AB]"/>
                         </button>
                       </td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-3 py-3 text-center">
                         <button 
                           onClick={() => {
                             setSelectedConsultation(item);
@@ -301,7 +358,7 @@ export default function AdminConsultationManagePage() {
                           <Eye className="w-3.5 h-3.5 text-[#0047AB]"/>
                         </button>
                       </td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="px-3 py-3 text-center">
                         <button 
                           onClick={() => toggleBestPractice(item.id)}
                           className="w-6 h-6 flex items-center justify-center hover:bg-[#FFF9E6] rounded transition-colors mx-auto"
@@ -351,7 +408,11 @@ export default function AdminConsultationManagePage() {
                               <Download className="w-3 h-3 text-[#666666]"/>
                             </button>
                             
-                            <select className="h-6 text-[10px] bg-transparent border-none text-[#666666] cursor-pointer flex-shrink-0">
+                            <select 
+                              className="h-6 text-[10px] bg-transparent border-none text-[#666666] cursor-pointer flex-shrink-0"
+                              value={playbackRate}
+                              onChange={handlePlaybackRateChange}
+                            >
                               <option>1x</option>
                               <option>1.5x</option>
                               <option>2x</option>
@@ -374,6 +435,15 @@ export default function AdminConsultationManagePage() {
         onClose={() => setIsConsultationModalOpen(false)}
         consultation={selectedConsultation}
       />
+      
+      {/* 실제 오디오 엘리먼트 (숨김) */}
+      {playingRow && (
+        <audio 
+          ref={audioRef} 
+          src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+          preload="metadata"
+        />
+      )}
     </MainLayout>
   );
 }

@@ -1,31 +1,92 @@
+import { useState, useEffect } from 'react';
 import MainLayout from '../components/layout/MainLayout';
-import { Search, Plus, Edit, Trash2, Filter, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { employeesData } from '../../data/mockData';
+import AddEmployeeModal from '../components/modals/AddEmployeeModal';
+import EditEmployeeModal from '../components/modals/EditEmployeeModal';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
-import { useState } from 'react';
-import { employeesData } from '../../data/mockData';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Pagination } from '../components/ui/Pagination';
+
+const itemsPerPage = 20; // 페이지당 표시할 사원 수
 
 export default function AdminManagePage() {
+  const [employees, setEmployees] = useState(employeesData);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [teamFilter, setTeamFilter] = useState<string>('전체');
-  const [positionFilter, setPositionFilter] = useState<string>('전체');
-  const [sortColumn, setSortColumn] = useState<string>('id');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [teamFilter, setTeamFilter] = useState('전체');
+  const [positionFilter, setPositionFilter] = useState('전체');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'vacation' | 'inactive'>('all');
+  const [sortColumn, setSortColumn] = useState('id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  // 팀, 직급 목록 추출
-  const teams = ['전체', ...Array.from(new Set(employeesData.map(emp => emp.team)))];
-  const positions = ['전체', ...Array.from(new Set(employeesData.map(emp => emp.position)))];
+  // LocalStorage에서 사원 목록 불러오기
+  useEffect(() => {
+    const savedEmployees = localStorage.getItem('employees');
+    let employeesToUse = employeesData;
 
-  const filteredEmployees = employeesData.filter(emp => {
+    if (savedEmployees) {
+      try {
+        const parsedEmployees = JSON.parse(savedEmployees);
+        
+        // 50명보다 적으면 mockData로 초기화
+        if (parsedEmployees.length < 50) {
+          console.log('LocalStorage 데이터가 50명 미만입니다. mockData로 초기화합니다.');
+          employeesToUse = employeesData;
+        } else {
+          employeesToUse = parsedEmployees;
+        }
+      } catch (e) {
+        console.error('Failed to load employees', e);
+        employeesToUse = employeesData;
+      }
+    }
+
+    // 팀 이름 정규화 (띄워쓰기 제거: "상담 1팀" -> "상담1팀")
+    const normalizedEmployees = employeesToUse.map((emp: any) => ({
+      ...emp,
+      team: emp.team.replace(/\s+/g, ''), // 모든 공백 제거
+    }));
+
+    setEmployees(normalizedEmployees);
+    localStorage.setItem('employees', JSON.stringify(normalizedEmployees));
+  }, []);
+
+  // 사원 목록이 변경될 때마다 LocalStorage에 저장
+  useEffect(() => {
+    localStorage.setItem('employees', JSON.stringify(employees));
+  }, [employees]);
+
+  // 사원 추가
+  const handleAddEmployee = (newEmployee: any) => {
+    setEmployees(prev => [newEmployee, ...prev]);
+  };
+
+  // 사원 수정
+  const handleEditEmployee = (updatedEmployee: any) => {
+    setEmployees(prev => prev.map(emp => emp.id === updatedEmployee.id ? updatedEmployee : emp));
+  };
+
+  // 사원 삭제
+  const handleDeleteEmployee = (id: string) => {
+    if (confirm('정말 삭제하시겠습니까?')) {
+      setEmployees(prev => prev.filter(emp => emp.id !== id));
+    }
+  };
+
+  // 팀, 직급 목록 추출
+  const teams = ['전체', ...Array.from(new Set(employees.map(emp => emp.team)))];
+  const positions = ['전체', ...Array.from(new Set(employees.map(emp => emp.position)))];
+
+  const filteredEmployees = employees.filter(emp => {
     const matchesSearch = emp.name.includes(searchTerm) || 
                           emp.id.includes(searchTerm) ||
                           emp.team.includes(searchTerm);
-    const matchesFilter = filterStatus === 'all' || emp.status === filterStatus;
-    const matchesTeam = teamFilter === '전체' || emp.team === teamFilter;
-    const matchesPosition = positionFilter === '전체' || emp.position === positionFilter;
-    return matchesSearch && matchesFilter && matchesTeam && matchesPosition;
+    return matchesSearch;
   });
 
   // 정렬 함수
@@ -58,30 +119,31 @@ export default function AdminManagePage() {
 
   // 정렬 아이콘 렌더링
   const renderSortIcon = (column: string) => {
-    if (sortColumn !== column) {
-      return <ArrowUpDown className="w-3 h-3 text-[#999999] ml-1 inline" />;
-    }
-    return sortDirection === 'asc' ? 
-      <ArrowUp className="w-3 h-3 text-[#0047AB] ml-1 inline" /> : 
-      <ArrowDown className="w-3 h-3 text-[#0047AB] ml-1 inline" />;
+    // 화살표 아이콘 제거 (깔끔한 UI를 위해)
+    return null;
   };
+
+  // 페이징 처리
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+  const currentEmployees = sortedEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <MainLayout>
-      <div className="h-[calc(100vh-60px)] flex flex-col p-3 sm:p-4 gap-3 bg-[#F5F5F5] overflow-y-auto">
+      <div className="h-[calc(100vh-60px)] flex flex-col p-3 gap-3 bg-[#F5F5F5] overflow-hidden">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border border-[#E0E0E0] p-3 flex-shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-            <h1 className="text-base font-bold text-[#333333]">사원 관리</h1>
-            <Button className="bg-[#0047AB] hover:bg-[#003580] h-8 text-xs px-3 w-full sm:w-auto">
-              <Plus className="w-3.5 h-3.5 mr-1.5" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+            <h1 className="text-lg font-bold text-[#333333]">사원 관리</h1>
+            <Button className="bg-[#0047AB] hover:bg-[#003580] h-8 text-xs px-3 w-full sm:w-auto" onClick={() => setIsAddModalOpen(true)}>
+              <UserPlus className="w-3.5 h-3.5 mr-1.5" />
               사원 추가
             </Button>
           </div>
           
-          <div className="flex flex-col gap-2">
+          {/* 모든 필터를 하나의 행에 배치 - 모바일에서는 여러 줄로 자동 변경 */}
+          <div className="flex flex-wrap items-center gap-2">
             {/* Search */}
-            <div className="w-full relative">
+            <div className="flex-1 min-w-[180px] relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#999999]" />
               <Input 
                 className="pl-8 h-8 text-xs placeholder:text-[10px]" 
@@ -91,58 +153,57 @@ export default function AdminManagePage() {
               />
             </div>
 
-            {/* Filters Row 1 - 팀/직급 */}
-            <div className="flex gap-2">
-              <Select value={teamFilter} onValueChange={setTeamFilter}>
-                <SelectTrigger className="flex-1 h-8 text-xs border-[#E0E0E0]">
-                  <SelectValue placeholder="팀 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.map(team => (
-                    <SelectItem key={team} value={team} className="text-xs">{team}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* 팀 필터 */}
+            <Select value={teamFilter} onValueChange={setTeamFilter}>
+              <SelectTrigger className="w-[110px] h-8 text-xs border-[#E0E0E0]">
+                <SelectValue placeholder="팀 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {teams.map(team => (
+                  <SelectItem key={team} value={team} className="text-xs">{team}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-              <Select value={positionFilter} onValueChange={setPositionFilter}>
-                <SelectTrigger className="flex-1 h-8 text-xs border-[#E0E0E0]">
-                  <SelectValue placeholder="직급 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {positions.map(position => (
-                    <SelectItem key={position} value={position} className="text-xs">{position}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* 직급 필터 */}
+            <Select value={positionFilter} onValueChange={setPositionFilter}>
+              <SelectTrigger className="w-[110px] h-8 text-xs border-[#E0E0E0]">
+                <SelectValue placeholder="직급 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {positions.map(position => (
+                  <SelectItem key={position} value={position} className="text-xs">{position}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            {/* Filters Row 2 - 상태 */}
-            <div className="grid grid-cols-4 gap-2">
+            {/* 상태 필터 버튼들 */}
+            <div className="flex gap-1.5">
               <Button
                 variant={filterStatus === 'all' ? 'default' : 'outline'}
                 onClick={() => setFilterStatus('all')}
-                className={`h-8 text-xs px-2 ${filterStatus === 'all' ? 'bg-[#0047AB]' : ''}`}
+                className={`h-8 text-xs px-2.5 ${filterStatus === 'all' ? 'bg-[#0047AB]' : ''}`}
               >
                 전체
               </Button>
               <Button
                 variant={filterStatus === 'active' ? 'default' : 'outline'}
                 onClick={() => setFilterStatus('active')}
-                className={`h-8 text-xs px-2 ${filterStatus === 'active' ? 'bg-[#34A853]' : ''}`}
+                className={`h-8 text-xs px-2.5 ${filterStatus === 'active' ? 'bg-[#34A853]' : ''}`}
               >
                 재직
               </Button>
               <Button
                 variant={filterStatus === 'vacation' ? 'default' : 'outline'}
                 onClick={() => setFilterStatus('vacation')}
-                className={`h-8 text-xs px-2 ${filterStatus === 'vacation' ? 'bg-[#FBBC04]' : ''}`}
+                className={`h-8 text-xs px-2.5 ${filterStatus === 'vacation' ? 'bg-[#FBBC04]' : ''}`}
               >
                 휴가
               </Button>
               <Button
                 variant={filterStatus === 'inactive' ? 'default' : 'outline'}
                 onClick={() => setFilterStatus('inactive')}
-                className={`h-8 text-xs px-2 ${filterStatus === 'inactive' ? 'bg-[#EA4335]' : ''}`}
+                className={`h-8 text-xs px-2.5 ${filterStatus === 'inactive' ? 'bg-[#EA4335]' : ''}`}
               >
                 비활성
               </Button>
@@ -154,25 +215,25 @@ export default function AdminManagePage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 flex-shrink-0">
           <div className="bg-white rounded-lg shadow-sm p-2.5 text-center border border-[#E0E0E0]">
             <div className="text-xl font-bold text-[#0047AB] mb-0.5">
-              {employeesData.length}
+              {employees.length}
             </div>
             <div className="text-[10px] text-[#666666]">전체 사원</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-2.5 text-center border border-[#E0E0E0]">
             <div className="text-xl font-bold text-[#34A853] mb-0.5">
-              {employeesData.filter(e => e.status === 'active').length}
+              {employees.filter(e => e.status === 'active').length}
             </div>
             <div className="text-[10px] text-[#666666]">재직 중</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-2.5 text-center border border-[#E0E0E0]">
             <div className="text-xl font-bold text-[#FBBC04] mb-0.5">
-              {employeesData.filter(e => e.status === 'vacation').length}
+              {employees.filter(e => e.status === 'vacation').length}
             </div>
             <div className="text-[10px] text-[#666666]">휴가 중</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-2.5 text-center border border-[#E0E0E0]">
             <div className="text-xl font-bold text-[#EA4335] mb-0.5">
-              {employeesData.filter(e => e.status === 'inactive').length}
+              {employees.filter(e => e.status === 'inactive').length}
             </div>
             <div className="text-[10px] text-[#666666]">비활성</div>
           </div>
@@ -219,7 +280,7 @@ export default function AdminManagePage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedEmployees.map((emp) => (
+                {currentEmployees.map((emp) => (
                   <tr 
                     key={emp.id}
                     className="border-b border-[#F0F0F0] hover:bg-[#F8F9FA] transition-colors"
@@ -258,10 +319,10 @@ export default function AdminManagePage() {
                     </td>
                     <td className="py-2 px-3 align-middle">
                       <div className="flex items-center justify-center gap-2">
-                        <Button variant="outline" size="sm" className="h-8">
-                          <Edit className="w-3 h-3" />
+                        <Button variant="outline" size="sm" className="h-8" onClick={() => { setSelectedEmployee(emp); setIsEditModalOpen(true); }}>
+                          <Edit2 className="w-3 h-3" />
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 text-[#EA4335] hover:text-[#EA4335] hover:bg-[#FFEBEE]">
+                        <Button variant="outline" size="sm" className="h-8 text-[#EA4335] hover:text-[#EA4335] hover:bg-[#FFEBEE]" onClick={() => handleDeleteEmployee(emp.id)}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
@@ -275,7 +336,7 @@ export default function AdminManagePage() {
           {/* 모바일/태블릿 카드 뷰 */}
           <div className="lg:hidden flex-1 overflow-y-auto p-3">
             <div className="space-y-3">
-              {sortedEmployees.map((emp) => (
+              {currentEmployees.map((emp) => (
                 <div 
                   key={emp.id}
                   className="bg-white border border-[#E0E0E0] rounded-lg p-3 hover:shadow-md transition-all"
@@ -319,11 +380,11 @@ export default function AdminManagePage() {
                   </div>
 
                   <div className="flex gap-2 pt-2 border-t border-[#E0E0E0]">
-                    <Button variant="outline" size="sm" className="flex-1 h-8 text-xs">
-                      <Edit className="w-3 h-3 mr-1" />
+                    <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => { setSelectedEmployee(emp); setIsEditModalOpen(true); }}>
+                      <Edit2 className="w-3 h-3 mr-1" />
                       수정
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1 h-8 text-xs text-[#EA4335] hover:text-[#EA4335] hover:bg-[#FFEBEE]">
+                    <Button variant="outline" size="sm" className="flex-1 h-8 text-xs text-[#EA4335] hover:text-[#EA4335] hover:bg-[#FFEBEE]" onClick={() => handleDeleteEmployee(emp.id)}>
                       <Trash2 className="w-3 h-3 mr-1" />
                       삭제
                     </Button>
@@ -332,8 +393,21 @@ export default function AdminManagePage() {
               ))}
             </div>
           </div>
+
+          {/* 페이징 버튼 */}
+          <div className="px-3 py-2 border-t border-[#E0E0E0] flex-shrink-0">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredEmployees.length}
+              itemsPerPage={itemsPerPage}
+            />
+          </div>
         </div>
       </div>
+      <AddEmployeeModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAdd={handleAddEmployee} />
+      <EditEmployeeModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} employee={selectedEmployee} onEdit={handleEditEmployee} />
     </MainLayout>
   );
 }

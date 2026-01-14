@@ -29,7 +29,9 @@
       "Bash(test:*)",
       "Bash(pip install:*)",
       "WebFetch(domain:dbml.dbdiagram.io)",
-      "Bash(unzip:*)"
+      "Bash(unzip:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []
