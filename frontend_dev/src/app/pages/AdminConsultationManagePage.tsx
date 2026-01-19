@@ -5,7 +5,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ConsultationDetailModal from '../components/modals/ConsultationDetailModal';
 import React from 'react';
-import { consultationsData as initialConsultationsData } from '../../data/mockData';
+import { consultationsData as initialConsultationsData, employeesData } from '../../data/mockData';
+import { getAgentName } from '../../utils/employeeUtils';
 
 export default function AdminConsultationManagePage() {
   const navigate = useNavigate();
@@ -150,7 +151,7 @@ export default function AdminConsultationManagePage() {
 
   // 필터 적용
   const filteredConsultations = consultations.filter(item => {
-    const matchesAgent = filters.agent === '전체' || item.agent === filters.agent;
+    const matchesAgent = filters.agent === '전체' || item.agent_id === filters.agent;
     const matchesCategory = filters.category === '전체' || item.category === filters.category;
     const matchesStatus = filters.status === '전체' || item.status === filters.status;
     const matchesDateFrom = !filters.dateFrom || item.datetime >= filters.dateFrom;
@@ -200,10 +201,11 @@ export default function AdminConsultationManagePage() {
                   onChange={(e) => setFilters({...filters, agent: e.target.value})}
                 >
                   <option>전체</option>
-                  <option>홍길동</option>
-                  <option>이영희</option>
-                  <option>김민수</option>
-                  <option>김태희</option>
+                  {employeesData.map(emp => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -315,7 +317,7 @@ export default function AdminConsultationManagePage() {
                       <td className="px-3 py-2 text-center">
                         <span className="text-xs text-[#0047AB] font-mono font-semibold whitespace-nowrap">{item.id}</span>
                       </td>
-                      <td className="px-3 py-2 text-xs text-[#666666] text-center whitespace-nowrap">{item.agent}</td>
+                      <td className="px-3 py-2 text-xs text-[#666666] text-center whitespace-nowrap">{getAgentName(item.agent_id, employeesData)}</td>
                       <td className="px-3 py-2 text-xs text-[#666666] text-center whitespace-nowrap">{item.customer}</td>
                       <td className="px-3 py-2 text-center">
                         <span className="text-xs px-2 py-1 bg-[#E8F1FC] text-[#0047AB] rounded inline-block whitespace-nowrap">

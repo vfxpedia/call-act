@@ -169,6 +169,7 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd }: AddEmployee
               <option value="차장">차장</option>
               <option value="부장">부장</option>
               <option value="이사">이사</option>
+              <option value="팀장">팀장</option>
             </select>
           </div>
 

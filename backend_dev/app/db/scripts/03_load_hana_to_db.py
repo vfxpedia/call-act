@@ -28,10 +28,13 @@ from tqdm import tqdm
 load_dotenv(Path(__file__).parent / '.env', override=False)
 load_dotenv(Path(__file__).parent.parent.parent / '.env', override=False)
 
+# config.py에서 경로 가져오기
+from config import HANA_RDB_METADATA_FILE, HANA_VECTORDB_FILE
+
 # 상수
 BASE_DIR = Path(__file__).parent.parent.parent.parent.parent
-RDB_METADATA_FILE = BASE_DIR / "data-preprocessing" / "data" / "hana" / "hana_rdb_metadata.json"
-VECTORDB_FILE = BASE_DIR / "data-preprocessing" / "data" / "hana" / "hana_vectordb_with_embeddings.json"
+RDB_METADATA_FILE = HANA_RDB_METADATA_FILE
+VECTORDB_FILE = HANA_VECTORDB_FILE
 
 # 환경 변수
 DB_HOST = os.getenv("DB_HOST", "localhost")

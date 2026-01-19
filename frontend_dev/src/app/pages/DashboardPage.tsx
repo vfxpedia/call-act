@@ -5,6 +5,7 @@ import AnnouncementModal from '../components/modals/AnnouncementModal';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { noticesData, consultationsData, frequentInquiriesData, employeesData, simulationsData } from '../../data/mockData';
+import { getAgentName } from '../../utils/employeeUtils';
 
 const stats = {
   todayCalls: 127,
@@ -52,7 +53,7 @@ const consultationHistory = consultationsData.map(c => ({
   category: c.category,
   title: c.memo || '상담 내용',
   customer: c.customer,
-  agent: c.agent,
+  agent: getAgentName(c.agent_id, employeesData),
   time: c.datetime.split(' ')[1],
   date: c.datetime.split(' ')[0],
   fcr: c.fcr,

@@ -1,8 +1,18 @@
 # 개발 규칙 (Development Rules)
 
-**작성일**: 2025-01-05
-**대상**: 프로젝트 개발자 및 LLM
+**작성일**: 2025-01-05  
+**최종 수정일**: 2026-01-13  
+**대상**: 프로젝트 개발자 및 LLM  
 **목적**: 코드 및 문서 작성의 일관성, 통일성 확보
+
+---
+
+## 중요 문서 참조
+
+**⚠️ 필수 숙지**: 
+- **[개발 환경 동기화 규칙](./03_개발환경_동기화_룰.md)**: `*_dev` → `*` 동기화 시 경로 오류 방지를 위한 필수 가이드
+- **[Git 규칙](./00_git_final.md)**: Git 서브모듈 관리 및 커밋 프로세스
+- **[문서 작성 규칙](./00_docs_rules.md)**: 문서 작성 표준
 
 ---
 
@@ -181,21 +191,35 @@ python preprocess_hana.py
 
 **핵심 원칙**: 모든 개발은 `*_dev` 폴더에서 진행하고, 테스트 완료 후 `*` 폴더로 복사하여 팀과 공유합니다.
 
+**⚠️ 중요**: 동기화 시 반드시 경로 참조를 프로덕션 경로로 수정해야 합니다.  
+**상세 가이드**: [개발 환경 동기화 규칙](./03_개발환경_동기화_룰.md) 참조
+
 **경로 관리 방법**:
-1. **`config.py` 사용** (권장):
+1. **`config.py` 사용** (권장, 우선 사용):
    - 환경 변수(`PREPROCESSING_ENV`)로 경로 전환
-   - `dev`: `data-preprocessing_dev/preprocessing/output`
-   - `prod`: `data-preprocessing/preprocess/output`
-   - 기본값: `ENV_TYPE = os.getenv('PREPROCESSING_ENV', 'prod').lower()`
+   - `dev`: `data-preprocessing_dev/data/teddycard`
+   - `prod`: `data-preprocessing/data/teddycard`
+   - **개발 환경 기본값**: `ENV_TYPE = os.getenv('PREPROCESSING_ENV', 'dev').lower()`
+   - **프로덕션 환경 기본값**: `ENV_TYPE = os.getenv('PREPROCESSING_ENV', 'prod').lower()`
+   - **이점**: 동기화 시 경로 수정 불필요, 환경 변수로 쉽게 전환
+   - **사용법**: `from config import OUTPUT_DIR, DATA_DIR`
    
-2. **하드코딩 경로**:
+2. **하드코딩 경로** (지양, config.py 사용 불가능한 경우만):
    - 복사 시 직접 수정: `data-preprocessing_dev` → `data-preprocessing`
+   - `backend_dev` → `backend`
    - `preprocessing` → `preprocess` (폴더 구조에 맞춰)
+   - **예외**: 양방향 지원 스크립트(프로덕션 경로 우선, 개발 경로 대체)는 하드코딩 허용
 
 **서브모듈 구조**:
 - **메인 레포**: `call-act` (개인 Git)
 - **서브모듈**: `data-preprocessing`, `backend`, `frontend` (팀 레포)
 - **개인 개발**: `*_dev` 폴더 (메인 레포 내부)
+
+**동기화 시 주의사항**:
+- ❌ `backend_dev` 경로가 `backend`에 남아있으면 안 됨
+- ❌ `data-preprocessing_dev` 경로가 `data-preprocessing`에 남아있으면 안 됨
+- ❌ `config.py` 기본값이 `'dev'`로 설정되면 안 됨 (프로덕션에서는 `'prod'`)
+- ✅ 문서에서 개발 환경을 설명하는 경우는 예외
 
 ### 4.1 프로젝트 폴더 구조
 
@@ -225,23 +249,23 @@ python preprocess_hana.py
 **개발 → 팀 공유 프로세스**:
 1. `*_dev` 폴더에서 개발 및 테스트
 2. 완료된 파일을 `*` 폴더로 복사
-3. 경로 수정:
-   - `config.py` 사용: `ENV_TYPE='prod'` 설정 또는 환경 변수 사용
-   - 하드코딩 경로: `data-preprocessing_dev` → `data-preprocessing` 직접 수정
-4. Git 커밋 (서브모듈 및 메인 레포 동기화)
-   - 서브모듈 커밋 → 메인 레포 서브모듈 포인터 업데이트
-
-**개발 → 팀 공유 프로세스**:
-1. `*_dev` 폴더에서 개발 및 테스트
-2. 완료된 파일을 `*` 폴더로 복사
-3. 경로 수정 (하드코딩된 경로를 config.py 사용 또는 직접 수정)
-4. `config.py` 기본값 설정 (dev: `ENV_TYPE='dev'`, prod: `ENV_TYPE='prod'`)
+3. **경로 수정 (필수)**:
+   - 하드코딩 경로: `backend_dev` → `backend`, `data-preprocessing_dev` → `data-preprocessing`
+   - `config.py` 기본값: `'dev'` → `'prod'`
+   - 문서 경로 예시: `backend_dev` → `backend`
+4. **동기화 후 검증** (필수):
+   - grep으로 경로 확인: `grep -r "backend_dev" backend/`
+   - `config.py` 기본값 확인
+   - 문서 경로 확인
 5. Git 커밋 (서브모듈 및 메인 레포 동기화)
+
+**⚠️ 중요**: 동기화 시 경로 참조를 반드시 프로덕션 경로로 수정해야 합니다.  
+**상세 체크리스트**: [개발 환경 동기화 규칙](./03_개발환경_동기화_룰.md) 참조
 
 **경로 관리 원칙**:
 - `config.py` 사용: 환경 변수(`PREPROCESSING_ENV`) 또는 기본값으로 경로 전환
-  - `dev`: `data-preprocessing_dev/preprocessing/output`
-  - `prod`: `data-preprocessing/preprocess/output`
+  - `dev`: `data-preprocessing_dev/data/teddycard` (개발 환경)
+  - `prod`: `data-preprocessing/data/teddycard` (프로덕션 환경)
 - 하드코딩 경로: 복사 시 `data-preprocessing_dev` → `data-preprocessing` 직접 수정
 
 ### 4.3 문서화 규칙

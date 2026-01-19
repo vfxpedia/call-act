@@ -108,7 +108,7 @@ interface Notice {
 ```typescript
 interface Consultation {
   id: string;                    // 상담 ID (예: CS-20250105-1432)
-  agent: string;                 // 상담사명
+  agent_id: string;              // 상담사 ID (예: EMP-001) - DB 스키마와 일치
   customer: string;              // 고객명
   category: string;              // 카테고리 (카드분실, 해외결제, 포인트 등)
   status: string;                // 상태 (완료, 진행중, 미완료)
@@ -121,11 +121,13 @@ interface Consultation {
 }
 ```
 
+**참고**: 상담사 이름은 `getAgentName(agent_id, employeesData)` 헬퍼 함수를 사용하여 `employeesData`에서 조회합니다.
+
 **샘플 데이터**:
 ```typescript
 {
   id: 'CS-20250105-1432',
-  agent: '홍길동',
+  agent_id: 'EMP-001',          // 홍길동
   customer: '김민수',
   category: '카드분실',
   status: '완료',
@@ -198,8 +200,9 @@ interface FrequentInquiry {
 
 ### 2.4 employeesData (사원 데이터)
 
-**개수**: 45명 (상담1팀 18명, 상담2팀 15명, 상담3팀 12명)  
-**타입**: Array<Employee>
+**개수**: 70명 (상담1팀 20명, 상담2팀 20명, 상담3팀 20명, IT 5명, 관리 3명, 교육 2명)  
+**타입**: Array<Employee>  
+**참고**: `mockData.ts`는 개발용 Mock 데이터이며, 실제 DB (`employeesData.json`)는 70명입니다.
 
 ```typescript
 interface Employee {
@@ -260,16 +263,20 @@ interface Employee {
 **팀별 인원 분포**:
 | 팀 | 인원 | 비율 |
 |------|------|------|
-| 상담1팀 | 18명 | 40% |
-| 상담2팀 | 15명 | 33% |
-| 상담3팀 | 12명 | 27% |
+| 상담1팀 | 20명 | 28.6% |
+| 상담2팀 | 20명 | 28.6% |
+| 상담3팀 | 20명 | 28.6% |
+| IT | 5명 | 7.1% |
+| 관리 | 3명 | 4.3% |
+| 교육 | 2명 | 2.9% |
 
 **직급별 분포**:
 | 직급 | 인원 | 비율 |
 |------|------|------|
-| 사원 | 20명 | 44% |
-| 대리 | 20명 | 44% |
-| 과장 | 5명 | 11% |
+| 사원 | 45명 | 64.3% |
+| 대리 | 20명 | 28.6% |
+| 과장 | 4명 | 5.7% |
+| 팀장 | 1명 | 1.4% |
 
 **사용 화면**:
 - EmployeesPage (사원 관리)

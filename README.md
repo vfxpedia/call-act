@@ -308,14 +308,18 @@ cp backend/.env.example backend/.env
 
 ```bash
 # PostgreSQL 데이터베이스 생성
-createdb callact
+createdb callact_db
 
 # pgvector 확장 설치
-psql callact -c "CREATE EXTENSION vector;"
+psql callact_db -c "CREATE EXTENSION vector;"
 
-# 스키마 생성 (23개 테이블, 16개 Enum)
+# 스키마 생성 (권장: 통합 스크립트 사용)
 cd backend/app/db/scripts
-psql callact < 01_setup_callact_db.sql
+conda activate final_env  # Conda 환경 활성화
+python 01_setup_callact_db.py
+
+# 또는 SQL 파일 직접 실행 (대안)
+# psql callact_db -U callact_admin -f db_setup.sql
 ```
 
 </details>
@@ -328,21 +332,27 @@ psql callact < 01_setup_callact_db.sql
 # 또는 pgAdmin 사용 권장
 
 # 2. PostgreSQL 데이터베이스 생성
-createdb -U postgres callact
+createdb -U postgres callact_db
 
 # 3. pgvector 확장 설치 (관리자 권한 필요)
-psql -U postgres -d callact -c "CREATE EXTENSION vector;"
+psql -U postgres -d callact_db -c "CREATE EXTENSION vector;"
 
-# 4. 스키마 생성
+# 4. 스키마 생성 (권장: 통합 스크립트 사용)
 cd backend\app\db\scripts
-psql -U postgres -d callact -f 01_setup_callact_db.sql
+conda activate final_env  # Conda 환경 활성화
+python 01_setup_callact_db.py
+
+# 또는 SQL 파일 직접 실행 (대안)
+# psql -U postgres -d callact_db -f db_setup.sql
 ```
 
 **pgAdmin 사용 시**:
 1. pgAdmin 실행 → Servers → PostgreSQL 연결
-2. Databases 우클릭 → Create → Database → Name: `callact`
+2. Databases 우클릭 → Create → Database → Name: `callact_db`
 3. Query Tool 열기 → `CREATE EXTENSION vector;` 실행
-4. `01_setup_callact_db.sql` 파일 내용 복사하여 실행
+4. `db_setup.sql` 파일 내용 복사하여 실행
+
+**주의**: 통합 스크립트(`01_setup_callact_db.py`)를 사용하면 모든 설정이 자동으로 진행됩니다. 자세한 내용은 [`backend/docs/통합_DB_설정_가이드.md`](backend/docs/통합_DB_설정_가이드.md)를 참고하세요.
 
 </details>
 
