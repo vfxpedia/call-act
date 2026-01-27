@@ -43,3 +43,7 @@ HANA_VECTORDB_FILE = HANA_DATA_DIR / "hana_vectordb_with_embeddings.json"
 # db/data/ 까지: parents[1] / "data"
 DB_DIR = Path(__file__).resolve().parents[1]  # backend_dev/app/db
 EMPLOYEES_DATA_FILE = DB_DIR / "data" / "employeesData.json"
+CUSTOMERS_DATA_FILE = DB_DIR / "data" / "customersData.json"
+
+# 테디카드 카드 상품 데이터 경로 (398개 실제 카드 상품)
+CARD_PRODUCTS_FILE = PROJECT_ROOT / "data-preprocessing" / "data" / "teddycard" / "teddycard_card_products_with_embeddings.json"

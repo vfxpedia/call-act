@@ -1,3 +1,141 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:f6e0b778aa8492f385f939b99486ffa79103892ef5a7f4534a6f99bcb68bb02a
-size 6356
+{
+  "total_targets": 12,
+  "success_count": 12,
+  "error_count": 0,
+  "total_time_seconds": 219.74,
+  "method": "LLM (gpt-4.1-mini)",
+  "results": [
+    {
+      "source_id": "20597",
+      "category": "선결제/즉시출금",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_20597.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_20597.txt",
+      "original_length": 1109,
+      "scenario_length": 1083,
+      "tags_replaced": 34,
+      "processing_time": 16.89,
+      "method": "LLM"
+    },
+    {
+      "source_id": "20617",
+      "category": "이용방법 안내",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_20617.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_20617.txt",
+      "original_length": 2329,
+      "scenario_length": 2380,
+      "tags_replaced": 28,
+      "processing_time": 29.05,
+      "method": "LLM"
+    },
+    {
+      "source_id": "20594",
+      "category": "이용내역 안내",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_20594.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_20594.txt",
+      "original_length": 2237,
+      "scenario_length": 2271,
+      "tags_replaced": 27,
+      "processing_time": 25.38,
+      "method": "LLM"
+    },
+    {
+      "source_id": "20596",
+      "category": "오토할부/오토캐쉬백 안내/신청/취소",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_20596.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_20596.txt",
+      "original_length": 1682,
+      "scenario_length": 1602,
+      "tags_replaced": 19,
+      "processing_time": 14.65,
+      "method": "LLM"
+    },
+    {
+      "source_id": "20604",
+      "category": "교육비",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_20604.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_20604.txt",
+      "original_length": 825,
+      "scenario_length": 840,
+      "tags_replaced": 11,
+      "processing_time": 10.68,
+      "method": "LLM"
+    },
+    {
+      "source_id": "20638",
+      "category": "소득공제 확인서/종합소득세 안내",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_20638.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_20638.txt",
+      "original_length": 1344,
+      "scenario_length": 1305,
+      "tags_replaced": 34,
+      "processing_time": 15.06,
+      "method": "LLM"
+    },
+    {
+      "source_id": "20659",
+      "category": "가상계좌 예약/취소",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_20659.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_20659.txt",
+      "original_length": 1276,
+      "scenario_length": 1279,
+      "tags_replaced": 31,
+      "processing_time": 12.66,
+      "method": "LLM"
+    },
+    {
+      "source_id": "20696",
+      "category": "안심클릭/▲▲페이/기타페이 안내",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_20696.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_20696.txt",
+      "original_length": 1676,
+      "scenario_length": 1702,
+      "tags_replaced": 16,
+      "processing_time": 18.25,
+      "method": "LLM"
+    },
+    {
+      "source_id": "20732",
+      "category": "명세서 재발송",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_20732.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_20732.txt",
+      "original_length": 1114,
+      "scenario_length": 1135,
+      "tags_replaced": 19,
+      "processing_time": 11.9,
+      "method": "LLM"
+    },
+    {
+      "source_id": "24267",
+      "category": "장기카드대출 실행",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_24267.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_24267.txt",
+      "original_length": 1482,
+      "scenario_length": 1521,
+      "tags_replaced": 14,
+      "processing_time": 32.75,
+      "method": "LLM"
+    },
+    {
+      "source_id": "20825",
+      "category": "단기카드대출 안내/실행",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_20825.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_20825.txt",
+      "original_length": 1185,
+      "scenario_length": 1204,
+      "tags_replaced": 18,
+      "processing_time": 14.33,
+      "method": "LLM"
+    },
+    {
+      "source_id": "26843",
+      "category": "안심클릭/하나페이/기타페이 안내",
+      "input_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\samples_114\\test_26843.txt",
+      "output_path": "C:\\SKN_19\\project\\4th\\data-preprocessing\\preprocess\\hana\\test_results\\scenarios_v02\\test_scenario_26843.txt",
+      "original_length": 1570,
+      "scenario_length": 1614,
+      "tags_replaced": 12,
+      "processing_time": 18.0,
+      "method": "LLM"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/><style>
+table {border: medium solid #6495ed;border-collapse: collapse;width: 100%;} th{font-family: monospace;border: thin solid #6495ed;padding: 5px;background-color: #D0E3FA;}th{text-align: left;}td{font-family: sans-serif;border: thin solid #6495ed;padding: 5px;text-align: center;}.odd{background:#e8edff;}img{padding:5px; border:solid; border-color: #dddddd #aaaaaa #aaaaaa #dddddd; border-width: 1px 2px 2px 1px; background-color:white;}</style>
+</head>
+<body>
+<table><tr><th colspan="12"><pre><code>persona_types</code></pre></th></tr><tr><th>code</th><th>name</th><th>description</th><th>category</th><th>personality_tags</th><th>communication_style</th><th>llm_guidance</th><th>distribution_ratio</th><th>display_order</th><th>is_active</th><th>created_at</th><th>updated_at</th></tr><tr class="odd"><td>N1</td><td>실용주의형</td><td>불필요한 말 없이 바로 문의사항을 말함</td><td>normal</td><td>{practical,direct,efficient}</td><td>{"tone": "direct", "speed": "fast"}</td><td>바로 본론으로 진행하세요. 간결하고 명확하게 답변해주세요.</td><td>0.25</td><td>1</td><td>true</td><td>2026-01-25 06:51:05.173</td><td>&nbsp;</td></tr>
+<tr><td>N2</td><td>친화적수다형</td><td>사적인 이야기나 본인 상황을 길게 설명함</td><td>normal</td><td>{friendly,talkative,personal}</td><td>{"tone": "warm", "speed": "moderate"}</td><td>고객의 이야기를 경청하고 공감해주세요. 친근하게 응대하세요.</td><td>0.2</td><td>2</td><td>true</td><td>2026-01-25 06:51:05.173</td><td>&nbsp;</td></tr>
+<tr class="odd"><td>N3</td><td>신중/보안중시형</td><td>신중하고 의심을 보임</td><td>normal</td><td>{cautious,security_conscious,suspicious}</td><td>{"tone": "formal", "speed": "slow"}</td><td>본인 확인 절차를 상세히 안내하고, 보안 관련 우려를 해소해주세요.</td><td>0.15</td><td>3</td><td>true</td><td>2026-01-25 06:51:05.173</td><td>&nbsp;</td></tr>
+<tr><td>S1</td><td>급한성격형</td><td>빠른 처리를 선호함</td><td>special</td><td>{impatient,urgent,busy}</td><td>{"tone": "concise", "speed": "fast"}</td><td>신속하게 처리해주세요. 핵심만 간결하게 전달하세요.</td><td>0.15</td><td>4</td><td>true</td><td>2026-01-25 06:51:05.173</td><td>&nbsp;</td></tr>
+<tr class="odd"><td>S2</td><td>꼼꼼상세형</td><td>상세한 설명을 요구함</td><td>special</td><td>{detailed,analytical,thorough}</td><td>{"tone": "thorough", "speed": "slow"}</td><td>단계별로 상세하게 설명해주세요. 모든 내용을 빠짐없이 안내하세요.</td><td>0.1</td><td>5</td><td>true</td><td>2026-01-25 06:51:05.173</td><td>&nbsp;</td></tr>
+<tr><td>S3</td><td>이해부족형</td><td>설명을 잘 이해하지 못하여 반복적으로 확인함</td><td>special</td><td>{confused,needs_repetition,patient_required}</td><td>{"tone": "patient", "speed": "slow"}</td><td>쉬운 용어로 천천히 설명해주세요. 이해했는지 확인하고 필요시 반복 안내하세요.</td><td>0.07</td><td>6</td><td>true</td><td>2026-01-25 06:51:05.173</td><td>&nbsp;</td></tr>
+<tr class="odd"><td>S4</td><td>반복민원형</td><td>과거의 상담 이력을 언급하며 해결되지 않은 불만을 제기함</td><td>special</td><td>{repeat_caller,frustrated,unresolved}</td><td>{"tone": "solution_focused", "speed": "moderate"}</td><td>이전 상담 이력을 확인하고 근본적인 해결책을 제시하세요. 진심으로 사과하세요.</td><td>0.05</td><td>7</td><td>true</td><td>2026-01-25 06:51:05.173</td><td>&nbsp;</td></tr>
+<tr><td>S5</td><td>불만형</td><td>분노, 짜증을 드러냄</td><td>special</td><td>{angry,frustrated,demanding}</td><td>{"tone": "calm_professional", "speed": "moderate"}</td><td>차분하게 경청하고 공감해주세요. 감정을 누그러뜨린 후 해결 방안을 제시하세요.</td><td>0.03</td><td>8</td><td>true</td><td>2026-01-25 06:51:05.173</td><td>&nbsp;</td></tr>
+</table></body></html>

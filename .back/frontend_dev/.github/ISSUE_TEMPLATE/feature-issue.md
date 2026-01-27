@@ -1,3 +1,24 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:d1078916569f2f6b50da073207028b036343f0486aed9d6a05e6dd0ce97f00b5
-size 306
+---
+name: Feature Issue
+about: 'Feature: 이슈'
+title: "[Feat] "
+labels: ''
+assignees: ''
+
+---
+
+### Summary
+
+이슈에 대한 개요
+
+### Description for refactoring features
+
+작업할 사항에 대한 설명
+
+### Todo-lists
+
+- [ ]  할 일
+
+### Expected
+
+해당 이슈가 해결될 경우 기대 결과

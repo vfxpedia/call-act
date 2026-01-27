@@ -41,6 +41,27 @@ export interface CustomerInfo {
   cardNumber: string;
   cardType: string;
   grade: string;
+  // ⭐ 카드 정보 추가
+  cardName?: string;                    // 카드 이름 (예: 하나 원큐 패밀리카드)
+  cardIssueDate?: string;               // 발급일 (YYYY-MM-DD)
+  cardExpiryDate?: string;              // 유효기간 (MM/YY)
+  // 고객 기본 정보
+  birthDate?: string;                   // 생년월일 (YYYY-MM-DD)
+  address?: string;                     // 주소
+  // 고객 특성 태그 시스템
+  traits?: string[];                    // 고객 특성 태그 배열 (최대 4개)
+  age?: number;                         // 나이
+  preferredStyle?: string;              // 선호 소통 방식 요약
+  // 고객 DB 연동 (백엔드 personality_tags 매핑 - 12개 페르소나: N1-N4, S1-S8)
+  personalityTags?: string[];           // 백엔드 personality_tags
+  communicationStyle?: {                // 백엔드 communication_style
+    speed?: 'fast' | 'moderate' | 'slow';
+    tone?: 'formal' | 'neutral' | 'casual' | 'warm' | 'empathetic';
+  };
+  gender?: 'male' | 'female' | 'unknown'; // 성별
+  ageGroup?: string;                    // 연령대 ('20대', '30대', '40대', '50대', '60대', '70대')
+  totalConsultations?: number;          // 총 상담 횟수
+  lastConsultationDate?: string;        // 마지막 상담 일자
 }
 
 export interface RecentConsultation {
@@ -64,21 +85,28 @@ const scenario1: Scenario = {
   id: 'scenario-1',
   category: '카드분실',
   customer: {
-    id: 'CUST-20241215-001',
+    id: 'CUST-TEDDY-00001',
     name: '김민지',
     phone: '010-2345-6789',
-    cardNumber: '1234-5678-****-****',
+    cardNumber: '1234-5678-9012-3456',
     cardType: '테디카드 프리미엄',
     grade: 'VIP',
+    cardName: '테디 원큐 패밀리',
+    cardIssueDate: '2023-03-15',
+    cardExpiryDate: '03/28',
+    // 고객 특성 태그
+    traits: ['빠른 답변 선호', '급한 성향', '비즈니스 고객', 'VIP 등급'],
+    age: 35,
+    preferredStyle: '대기 시간 최소화, VIP 우대 서비스 즉시 안내 필요',
   },
   recentConsultations: [
-    { id: 'CS-20241210-1234', category: '한도조회', content: '신용한도 조회 및 증액 신청', date: '2024-12-10' },
-    { id: 'CS-20241105-5678', category: '포인트', content: '포인트 사용처 및 적립률 문의', date: '2024-11-05' },
-    { id: 'CS-20241020-9012', category: '프로모션', content: '가을 이벤트 참여 방법 안내', date: '2024-10-20' },
+    { id: 'CS-EMP001-202412101430', category: '한도조회', content: '신용한도 조회 및 증액 신청', date: '2024-12-10' },
+    { id: 'CS-EMP002-202411051520', category: '포인트', content: '포인트 사용처 및 적립률 문의', date: '2024-11-05' },
+    { id: 'CS-EMP001-202410201015', category: '프로모션', content: '가을 이벤트 참여 방법 안내', date: '2024-10-20' },
   ],
   sttDialogue: [
     { speaker: 'agent', message: '안녕하세요, 테디카드 상담센터 상담사 김현우입니다. 무엇을 도와드릴까요?', timestamp: 1 },
-    { speaker: 'customer', message: '안녕하세요, 급한 일인데요. 카드를 잃어버렸어요!', timestamp: 3 },
+    { speaker: 'customer', message: '안녕하세요, 급한 일��데요. 카드를 잃어버렸어요!', timestamp: 3 },
     { speaker: 'agent', message: '고객님, 우선 카드 사용을 즉시 정지하겠습니다. 본인 확인을 위해 생년월일을 말씀해주시겠어요?', timestamp: 6 },
     { speaker: 'customer', message: '네, 1990년 3월 15일입니다.', timestamp: 9 },
     { speaker: 'agent', message: '확인되었습니다. 카드 사용이 정지되었습니다. 분실 신고 접수 완료했습니다.', timestamp: 13 },
@@ -289,7 +317,7 @@ LOSS-YYYYMMDD-XXXX
 자동이체 재등록을 하지 않으면 서비스가 중단되거나 연체료가 발생할 수 있으므로, 카드 수령 후 즉시 재등록하시기 바랍니다.`,
         },
       ],
-      guidanceScript: '고객님, 카드 사용이 즉시 정지되었으며 분실 신고가 접수되었습니다.',
+      guidanceScript: '고객님, 많이 당황하셨죠? 우선 부정 사용을 막기 위해 카드 정지부터 도와드리겠습니다. 본인 확인을 위해 생년월일을 말씀해 주시겠어요?',
     },
     {
       stepNumber: 2,
@@ -456,7 +484,7 @@ LOSS-YYYYMMDD-XXXX
 본 서비스는 전자상거래법 제15조(배송 의무)에 따릅니다.`,
         },
       ],
-      guidanceScript: '고객님, 인천공항 테디라운지에서 출�� 당일 임시 카드를 발급받으실 수 있습니다.',
+      guidanceScript: '정지 처리는 완료되었습니다. 이제 재발급을 도와드릴 텐데요, 혹시 해외 출장 등 급하게 카드를 사용하셔야 하는 일정이 있으신가요?',
     },
     {
       stepNumber: 3,
@@ -634,7 +662,7 @@ LOSS-YYYYMMDD-XXXX
 본 서비스는 개인정보보호법 제22조(동의를 받는 방법)에 따라, 고객 동의 하에 제공됩니다.`,
         },
       ],
-      guidanceScript: '고객님, 모든 처리가 완료되었습니다. 추가 문의사항 있으시면 언제든 연락주세요. 감사합니다!',
+      guidanceScript: '네, 신청하신 긴급 카드는 공항 라운지에서 수령 가능합니다. 출국 전 꼭 수령 부탁드리며, 오늘도 편안한 여행 되시길 바랍니다.',
     },
   ],
 };
@@ -644,15 +672,22 @@ const scenario2: Scenario = {
   id: 'scenario-2',
   category: '해외결제',
   customer: {
-    id: 'CUST-20241118-047',
+    id: 'CUST-TEDDY-00002',
     name: '박서준',
     phone: '010-8765-4321',
-    cardNumber: '9876-5432-****-****',
+    cardNumber: '9876-5432-1098-7654',
     cardType: '테디카드 스탠다드',
     grade: '일반',
+    cardName: '테디 트래블로그',
+    cardIssueDate: '2022-11-20',
+    cardExpiryDate: '11/27',
+    // 고객 특성 태그
+    traits: ['해외 거주', '기술 친화적', '온라인 선호', '영어 가능'],
+    age: 42,
+    preferredStyle: '앱/웹 셀프서비스 위주 안내, 시차 고려한 후속 연락 필요',
   },
   recentConsultations: [
-    { id: 'CS-20241201-3344', category: '포인트', content: '포인트 적립 확인 및 사용', date: '2024-12-01' },
+    { id: 'CS-EMP003-202412011615', category: '포인트', content: '포인트 적립 확인 및 사용', date: '2024-12-01' },
   ],
   sttDialogue: [
     { speaker: 'agent', message: '안녕하세요, 테디카드 상담센터 상담사 이서연입니다. 무엇을 도와드릴까요?', timestamp: 1 },
@@ -830,7 +865,7 @@ const scenario2: Scenario = {
 본 서비스는 정보통신망법 제50조(알림 서비스)에 따릅니다.`,
         },
       ],
-      guidanceScript: '고객님, 일본 사용 설정이 만료되어 차단되었습니다. 즉시 재설정했으며 5분 후부터 사용 가능합니다.',
+      guidanceScript: '일본에서 결제가 안 되셔서 많이 당황하셨겠어요. 제가 지금 바로 해외 사용 설정 상태를 확인해 보겠습니다. 잠시만 기다려 주세요.',
     },
     {
       stepNumber: 2,
@@ -1182,7 +1217,7 @@ VIP 고객이 100 USD 결제 시:
 본 문자는 정보통신망법 제50조(광고성 정보 전송 제한)에 따라 상담 안내 목적으로만 발송됩니다.`,
         },
       ],
-      guidanceScript: '고객님, 모든 설정이 완료되었습니다. 안전한 여행 되세요. 감사합니다!',
+      guidanceScript: '설정 완료되었습니다. 이제 정상적으로 결제되실 거예요. 혹시 안전한 여행을 위해 결제 알림 SMS 서비스도 같이 신청해 드릴까요?',
     },
   ],
 };
@@ -1192,15 +1227,22 @@ const scenario3: Scenario = {
   id: 'scenario-3',
   category: '수수료문의',
   customer: {
-    id: 'CUST-20241205-089',
+    id: 'CUST-TEDDY-00003',
     name: '이지은',
     phone: '010-5555-6666',
-    cardNumber: '5555-6666-****-****',
+    cardNumber: '5555-6666-7777-8888',
     cardType: '테디카드 골드',
     grade: 'GOLD',
+    cardName: '테디 멤버스',
+    cardIssueDate: '2021-06-10',
+    cardExpiryDate: '06/26',
+    // 고객 특성 태그
+    traits: ['꼼꼼한 성향', '비용 민감', '상세 설명 요구', '반복 질문'],
+    age: 58,
+    preferredStyle: '단계별 설명 + 서면 자료(SMS/이메일) 발송, 수수료 면제 혜택 우선 안내',
   },
   recentConsultations: [
-    { id: 'CS-20241130-4455', category: '포인트', content: '포인트 사용 문의', date: '2024-11-30' },
+    { id: 'CS-EMP004-202411301045', category: '포인트', content: '포인트 사용 문의', date: '2024-11-30' },
   ],
   sttDialogue: [
     { speaker: 'agent', message: '안녕하세요, 테디카드 상담센터 상담사 박지훈입니다. 무엇을 도와드릴까요?', timestamp: 1 },
@@ -1664,12 +1706,19 @@ const scenario4: Scenario = {
   id: 'scenario-4',
   category: '한도증액',
   customer: {
-    id: 'CUST-20241110-123',
+    id: 'CUST-TEDDY-00004',
     name: '최우식',
     phone: '010-7777-8888',
-    cardNumber: '7777-8888-****-****',
+    cardNumber: '7777-8888-9999-0000',
     cardType: '테디카드 프리미엄',
     grade: 'PREMIUM',
+    cardName: '테디 비즈니스',
+    cardIssueDate: '2020-08-25',
+    cardExpiryDate: '08/25',
+    // 고객 특성 태그
+    traits: ['신용 관리 철저', '비즈니스 목적', '프로세스 이해', '결과 중심'],
+    age: 38,
+    preferredStyle: '처리 결과 우선 안내, 프로세스 생략하고 핵심만 전달',
   },
   recentConsultations: [],
   sttDialogue: [
@@ -1691,7 +1740,7 @@ const scenario4: Scenario = {
       keywords: [
         { text: '한도증액', appearTime: 4 },
         { text: '신용평가', appearTime: 7 },
-        { text: '심���', appearTime: 14 },
+        { text: '심사', appearTime: 14 },
       ],
       currentSituationCards: [
         {
@@ -2252,15 +2301,22 @@ const scenario5: Scenario = {
   id: 'scenario-5',
   category: '연체문의',
   customer: {
-    id: 'CUST-20241201-456',
+    id: 'CUST-TEDDY-00005',
     name: '강동원',
     phone: '010-9999-0000',
-    cardNumber: '9999-0000-****-****',
+    cardNumber: '9999-0000-1111-2222',
     cardType: '테디카드 스탠다드',
     grade: '일반',
+    cardName: '테디 카드',
+    cardIssueDate: '2024-02-14',
+    cardExpiryDate: '02/29',
+    // 고객 특성 태그
+    traits: ['경제적 어려움', '공감 필요', '해결책 중심', '반복 연체'],
+    age: 29,
+    preferredStyle: '공감 표현 필수, 해결책 중심 안내(무이자 할부/리볼빙 등)',
   },
   recentConsultations: [
-    { id: 'CS-20241125-6677', category: '연체', content: '연체 이자 문의', date: '2024-11-25' },
+    { id: 'CS-EMP005-202411251330', category: '연체', content: '연체 이자 문의', date: '2024-11-25' },
   ],
   sttDialogue: [
     { speaker: 'agent', message: '안녕하세요, 테디카드 상담센터 상담사 정수민입니다. 무엇을 도와드릴까요?', timestamp: 1 },
@@ -2935,12 +2991,19 @@ const scenario6: Scenario = {
   id: 'scenario-6',
   category: '기타문의',
   customer: {
-    id: 'CUST-20241220-789',
+    id: 'CUST-TEDDY-00006',
     name: '한지민',
     phone: '010-1111-2222',
-    cardNumber: '1111-2222-****-****',
+    cardNumber: '1111-2222-3333-4444',
     cardType: '테디카드 골드',
     grade: 'GOLD',
+    cardName: '테디 원큐체크',
+    cardIssueDate: '2023-09-01',
+    cardExpiryDate: '09/28',
+    // 고객 특성 태그
+    traits: ['계획적 성향', '자동화 선호', '일정 중시', '적극적 질문'],
+    age: 33,
+    preferredStyle: '처리 일정 명확히 안내, 자동이체/알림 설정 등 자동화 옵션 추천',
   },
   recentConsultations: [],
   sttDialogue: [
@@ -3717,6 +3780,28 @@ export const scenarios: Scenario[] = [
   scenario6,
 ];
 
+// ⭐ Phase 14: 8개 대분류를 6개 시나리오로 매핑
+const categoryMapping: Record<string, string> = {
+  '분실/도난': '카드분실',
+  '한도': '한도증액',
+  '결제/승인': '해외결제', // 결제/승인은 해외결제 시나리오로 매핑
+  '이용내역': '기타문의', // 이용내역은 기타문의로 매핑
+  '수수료/연체': '연체문의', // 수수료는 연체문의에 통합
+  '포인트/혜택': '기타문의', // 포인트는 기타문의로 매핑
+  '정부지원': '기타문의', // 정부지원은 기타문의로 매핑
+  '기타': '기타문의',
+};
+
 export function getScenarioByCategory(category: string): Scenario | null {
-  return scenarios.find(s => s.category === category) || null;
+  // 1. 직접 매칭 시도 (하위 호환성)
+  const direct = scenarios.find(s => s.category === category);
+  if (direct) return direct;
+  
+  // 2. 8개 대분류 → 6개 시나리오 매핑
+  const mappedCategory = categoryMapping[category];
+  if (mappedCategory) {
+    return scenarios.find(s => s.category === mappedCategory) || null;
+  }
+  
+  return null;
 }

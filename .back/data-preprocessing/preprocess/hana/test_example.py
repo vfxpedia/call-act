@@ -1,3 +1,76 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:3be430e567ef03a7b6a060a2c87952b42e9e830d3cefb735c5d21817ee9b17b6
-size 3173
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent))
+
+from preprocess_hana import normalize_all_masking, remove_standalone_fillers, extract_keywords
+
+sample_text = """상담사: 상담원 ▲▲▲입니다.
+손님: 예, 저 다름이 아니고요, 그 아이 학교에 수익자 부담 경비를 신용카드로 자동납부 신청할 수 있다고 해서
+손님: 그 아이 번호를 부여 받아서 전화 드렸습니다.
+상담사: 아.
+상담사: 그러세요. 제가 본인 확인 후에 신청해드릴 텐데요, ▲▲▲ 님 본인 맞으실까요?
+손님: 네.
+상담사: 네, 자동납부 신청하신 카드가 이용이 불가능할 경우 요금 미납 방지를 위해서 회원님이 다른 유효한 카드를 사용하는 것에도 동의를 받고 있는데 동의하시겠습니까?
+손님: 네.
+상담사: 네, 교육청이 어디실까요?
+손님: ▲▲▲입니다.
+상담사: ▲▲▲교육청이고요. 학생 식별번호가 어떻게 되세요?
+손님: ▲
+상담사: ▲▲▲할 때 ▲이고요.
+손님: 네, ▲▲▲할 때 ▲이고요, 그 다음에 전부 숫자인데요, ▲▲▲▲.
+상담사: ▲▲요.
+손님: ▲▲▲
+상담사: ▲▲▲
+손님: ▲▲▲
+상담사: ▲▲▲▲▲
+손님: 네.
+상담사: ▲▲▲▲초등학교 ▲▲▲학생 맞으실까요?
+손님: 네, 맞습니다.
+상담사: 네, 카드는 어떤 카드로 신청해 드릴까요?
+손님: ▲▲ 제 거 그 신용카드요.
+상담사: 네, ▲▲카드로 신청하고요. 지금 전화주신 분은 어머님 되시는 거죠?
+손님: 네.
+상담사: 네, 교육비는 접수해드렸고요. 신청된 정보를 학교에서 최종 승인을 해주셔야 등록이 됩니다. 최대 일주일 소요될 수 있고요. 다른 문의 사항 있으십니까?
+손님: 네, 네.
+손님: 제가 그러면은 등록된 카드번호가
+손님: 제가 확인할게요. ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 맞나요?
+상담사: 네, 맞습니다.
+손님: 네, 그럼 여기로 등록해주시고 그 아까 전에 신청이 ▲▲초등학교 ▲▲▲, ▲▲▲▲▲▲▲▲▲으로 신청된 걸로 알고 있을게요.
+상담사: 네, 알겠습니다.
+손님: 그리고 7일 정도 소요될 수 있다고요?
+상담사: 최대 7일 안으로 문자받으실 거예요.
+손님: 알겠습니다. 감사합니다.
+상담사: 네, 상담원 ▲▲▲이었습니다.
+손님: 네."""
+
+print("=" * 80)
+print("원본 텍스트 (일부):")
+print("=" * 80)
+print(sample_text[:300] + "...")
+print()
+
+print("=" * 80)
+print("1단계: 개인정보 마스킹 통일화")
+print("=" * 80)
+masked_text = normalize_all_masking(sample_text)
+print(masked_text[:400] + "...")
+print()
+
+print("=" * 80)
+print("2단계: 불용어 제거")
+print("=" * 80)
+cleaned_text = remove_standalone_fillers(masked_text)
+print(cleaned_text[:400] + "...")
+print()
+
+print("=" * 80)
+print("3단계: 키워드 추출")
+print("=" * 80)
+keywords = extract_keywords("교육비", cleaned_text)
+print(f"추출된 키워드: {keywords}")
+print()
+
+print("=" * 80)
+print("최종 정제된 텍스트 (일부):")
+print("=" * 80)
+print(cleaned_text[:500])

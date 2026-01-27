@@ -39,6 +39,20 @@ docker-compose --version
 
 ### 1.2 PostgreSQL + pgvector 설치 (Docker 사용)
 
+**⚠️ 중요: 포트 변경 사항 (2026-01-23)**
+
+**변경 내용**:
+- **이전**: 호스트 포트 `5432` 사용
+- **현재**: 호스트 포트 `5555` 사용
+- **이유**: Windows 동적 포트 예약 범위(5416-5515)와 충돌 방지
+- **컨테이너 내부 포트**: 여전히 `5432` 사용 (변경 없음)
+- **포트 매핑**: `호스트:5555 → 컨테이너:5432`
+
+**영향 범위**:
+- `.env` 파일의 `DB_PORT`를 `5555`로 설정해야 함
+- DBeaver 연결 시 포트를 `5555`로 설정해야 함
+- 모든 DB 연결 설정에서 포트 `5555` 사용
+
 **Docker Compose로 PostgreSQL 실행**:
 ```bash
 # backend_dev/docker 디렉토리로 이동
@@ -53,6 +67,7 @@ docker ps
 
 **실행 확인**:
 - `docker ps` 명령어로 `callact_db_container`가 실행 중인지 확인
+- `PORTS` 컬럼에 `0.0.0.0:5555->5432/tcp`가 표시되어야 함
 - 컨테이너가 실행 중이어야 DBeaver에서 접속 가능
 
 **수동 설치** (Docker 사용 불가 시):
@@ -94,11 +109,18 @@ cd backend_dev/app/db/scripts
 **필수 변수**:
 ```env
 DB_HOST=localhost
-DB_PORT=5432
+DB_PORT=5555  # ⚠️ 중요: 호스트 포트는 5555 사용 (Windows 동적 포트 예약 범위 회피)
 DB_USER=callact_admin
 DB_PASSWORD=your_password_here
 DB_NAME=callact_db
 ```
+
+**⚠️ 포트 변경 사항 (2026-01-23)**:
+- **이전**: 호스트 포트 `5432` 사용
+- **현재**: 호스트 포트 `5555` 사용
+- **이유**: Windows 동적 포트 예약 범위(5416-5515)와 충돌 방지
+- **컨테이너 내부 포트**: 여전히 `5432` 사용 (변경 없음)
+- **호스트 포트**: `5555` 사용 (Docker 포트 매핑: `5555:5432`)
 
 **참고**: Docker Compose를 사용하는 경우 `docker-compose.yml` 파일의 기본 비밀번호를 사용하거나, 보안을 위해 다른 비밀번호를 설정하세요.
 
@@ -122,12 +144,17 @@ DB_COMMIT_INTERVAL=500
 3. PostgreSQL 선택
 4. 연결 정보 입력:
    - **호스트**: `localhost`
-   - **포트**: `5432`
+   - **포트**: `5555` ⚠️ **중요**: 5432가 아닌 5555 사용
    - **데이터베이스**: `callact_db`
    - **사용자 이름**: `callact_admin`
    - **비밀번호**: `your_password_here` (Docker Compose 기본값 또는 .env 파일에 설정한 값)
 5. "테스트 연결" 클릭하여 연결 확인
 6. "완료" 클릭
+
+**⚠️ 포트 변경 안내**:
+- Docker 컨테이너는 호스트의 `5555` 포트를 통해 접속합니다
+- 컨테이너 내부에서는 여전히 PostgreSQL 기본 포트 `5432`를 사용합니다
+- 포트 매핑: `호스트:5555 → 컨테이너:5432`
 
 **테이블 확인 방법**:
 1. DBeaver에서 `callact_db` 연결 선택
@@ -317,7 +344,7 @@ python 01_setup_callact_db.py --verify-only
 
 ```
 ✅ 환경 변수: 모두 설정됨
-   - DB: localhost:5432/callact_db
+   - DB: localhost:5555/callact_db  # ⚠️ 포트 5555 사용
 ```
 
 ---
@@ -515,12 +542,24 @@ python 01_setup_callact_db.py --skip-hana
    ```bash
    # Docker 사용 시
    docker ps
+   # PORTS 컬럼에 0.0.0.0:5555->5432/tcp가 표시되어야 함
    
    # 또는 직접 확인
-   psql -h localhost -U callact_admin -d callact_db
+   psql -h localhost -p 5555 -U callact_admin -d callact_db
+   # ⚠️ 포트 5555 사용
    ```
-2. `.env` 파일의 DB 연결 정보 확인
+2. `.env` 파일의 DB 연결 정보 확인:
+   - `DB_PORT=5555` (5432가 아님)
+   - `DB_HOST=localhost`
 3. PostgreSQL이 실행 중인지 확인
+4. **포트 충돌 문제**: Windows에서 `bind: An attempt was made to access a socket in a way forbidden by its access permissions` 오류가 발생하면:
+   ```cmd
+   # 예약된 포트 확인
+   netsh interface ipv4 show excludedportrange protocol=tcp
+   
+   # 5555 포트가 예약 범위에 있는지 확인
+   # 만약 예약되어 있다면 docker-compose.yml에서 다른 포트 사용
+   ```
 
 ### 7.5 "column 'embedding' does not exist"
 

@@ -33,10 +33,17 @@ RUNPOD_API_KEY=your_runpod_api_key_here
 # 로컬 개발 시: localhost
 # 팀원 Docker 서버: 팀원 IP 주소 또는 Tailscale IP (예: 192.168.0.100)
 DB_HOST=localhost
-DB_PORT=5432
+DB_PORT=5555  # ⚠️ 중요: 호스트 포트는 5555 사용 (Windows 동적 포트 예약 범위 회피)
 DB_USER=callact_admin
 DB_PASSWORD=callact_pwd1  # 실제 비밀번호로 변경
 DB_NAME=callact_db
+
+# ⚠️ 포트 변경 사항 (2026-01-23):
+# - 이전: 호스트 포트 5432 사용
+# - 현재: 호스트 포트 5555 사용
+# - 이유: Windows 동적 포트 예약 범위(5416-5515)와 충돌 방지
+# - 컨테이너 내부 포트: 여전히 5432 사용 (변경 없음)
+# - 호스트 포트: 5555 사용 (Docker 포트 매핑: 5555:5432)
 
 # 모델 파일을 저장할 로컬 폴더 경로
 MODEL_CACHE_DIR=./model_cache

@@ -1,3 +1,11 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:7510609460e6d36b73e9ca78c73e25bf3fff5f026ef74a68cd538fb1e495fcc4
-size 240
+
+  # CALL:ACT
+
+  This is a code bundle for CALL:ACT. The original project is available at https://callact.figma.site
+
+  ## Running the code
+
+  Run `npm i` to install the dependencies.
+
+  Run `npm run dev` to start the development server.
+  
