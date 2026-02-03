@@ -13,6 +13,9 @@ import type {
   MockAfterCallWorkData
 } from '@/types/consultation';
 
+// ⭐ USE_MOCK_DATA를 re-export (다른 컴포넌트에서 사용 가능하도록)
+export { USE_MOCK_DATA };
+
 // ========================================
 // 1. Mock 데이터 정의
 // ========================================
@@ -26,9 +29,9 @@ export const MOCK_AFTER_CALL_WORK_DATA: MockAfterCallWorkData = {
     datetime: '2025-01-05 14:32',
   },
   customerInfo: {
-    id: 'CUST-001',
-    name: '홍길동',
-    phone: '010-1234-5678',
+    id: 'CUST-TEDDY-00001',
+    name: '김민지',
+    phone: '010-2345-6789',
   },
   currentCase: {
     category: '카드분실',
@@ -37,7 +40,7 @@ export const MOCK_AFTER_CALL_WORK_DATA: MockAfterCallWorkData = {
   },
   similarCase: {
     category: '카드분실',
-    summary: '2024-12-28 처리 사례. 고객 카드 분실 신고 후 재발급 처리. 해외 여행 전 긴급 배송 요청하여 익일 배송으로 변경 처리.',
+    summary: '2024-12-28 처리 사례. 고객 카드 분실 신고 후 재발급 처리. 해외 여행 전 긴급 배송 요청하여 익일 배송으로 ��경 처리.',
   },
   callTranscript: [
     { speaker: 'customer', message: '안녕하세요, 카드를 분실했어요.', timestamp: '14:32' },
@@ -46,6 +49,32 @@ export const MOCK_AFTER_CALL_WORK_DATA: MockAfterCallWorkData = {
     { speaker: 'agent', message: '카드 사용이 정지되었습니다. 재발급 카드는 3-5일 내 배송됩니다.', timestamp: '14:35' },
     { speaker: 'customer', message: '알겠습니다. 감사합니다.', timestamp: '14:37' },
   ],
+};
+
+/**
+ * ⭐ 다이렉트 콜용 빈 Mock 데이터
+ * 대기콜을 선택하지 않고 직접 통화 버튼을 눌렀을 때 사용
+ */
+export const EMPTY_AFTER_CALL_WORK_DATA: MockAfterCallWorkData = {
+  callInfo: {
+    id: '',  // pendingConsultation에서 자동 생성
+    datetime: '',  // pendingConsultation에서 자동 설정
+  },
+  customerInfo: {
+    id: 'CUST-TEDDY-00000',  // 형식 예시 (DB 스키마 참고용)
+    name: '(고객명 미확인)',  // 다이렉트 콜 상태 명시
+    phone: '010-0000-0000',  // 형식 예시 (DB 스키마 참고용)
+  },
+  currentCase: {
+    category: '기타',  // 기본 대분류
+    summary: '',  // AI가 생성 예정
+    aiRecommendation: '',
+  },
+  similarCase: {
+    category: '기타',
+    summary: '',
+  },
+  callTranscript: [],  // ⭐ 빈 배열 (상담 전문 없음)
 };
 
 // ========================================
@@ -122,16 +151,46 @@ export function loadAfterCallWorkData(): MockAfterCallWorkData {
   if (USE_MOCK_DATA) {
     console.log('🎭 Mock 데이터 모드');
     
-    // ⭐ pending 데이터가 있으면 datetime만이라도 실제값으로 덮어쓰기
+    // ⭐ pending 데이터가 있으면 실제값으로 덮어쓰기
     if (pending) {
-      console.log('💡 로컬 데이터 발견: 날짜 덮어쓰기');
+      console.log('💡 로컬 데이터 발견: 데이터 덮어쓰기');
+      
+      // ⭐ 다이렉트 콜 감지 (category가 '일반문의' 또는 빈값)
+      const isDirectCall = !pending.category || pending.category === '일반문의';
+      
+      if (isDirectCall) {
+        console.log('📞 다이렉트 콜 감지 → 빈 폼으로 초기화');
+        return {
+          ...EMPTY_AFTER_CALL_WORK_DATA,
+          callInfo: {
+            id: pending.consultationId,
+            datetime: pending.datetime,
+          },
+          // ⭐ 고객 정보가 실제로 있으면 채우기 (다이렉트 콜도 고객 DB 조회 가능)
+          customerInfo: (pending.customerId && pending.customerId !== 'CUST-TEDDY-00000') ? {
+            id: pending.customerId,
+            name: pending.customerName,
+            phone: pending.customerPhone,
+          } : EMPTY_AFTER_CALL_WORK_DATA.customerInfo,
+        };
+      }
+      
+      // ⭐ 시나리오 기반 통화 (기존 로직 유지)
       return {
         ...MOCK_AFTER_CALL_WORK_DATA,
         callInfo: {
-          ...MOCK_AFTER_CALL_WORK_DATA.callInfo,
-          datetime: pending.datetime, // 실제 상담 시작 시간 사용
+          id: pending.consultationId,
+          datetime: pending.datetime,
         },
-        // 필요한 경우 다른 필드도 덮어쓰기 가능
+        customerInfo: {
+          id: pending.customerId,
+          name: pending.customerName,
+          phone: pending.customerPhone,
+        },
+        currentCase: {
+          ...MOCK_AFTER_CALL_WORK_DATA.currentCase,
+          category: pending.category,
+        },
       };
     }
     
@@ -147,6 +206,30 @@ export function loadAfterCallWorkData(): MockAfterCallWorkData {
   if (!pending) {
     console.warn('⚠️ pendingConsultation이 없습니다. Mock 데이터로 폴백합니다.');
     return MOCK_AFTER_CALL_WORK_DATA;
+  }
+  
+  // ⭐ 다이렉트 콜 감지 (Real 모드)
+  const isDirectCall = !pending.category || pending.category === '일반문의';
+  
+  if (isDirectCall) {
+    console.log('📞 [Real] 다이렉트 콜 감지 → 빈 폼으로 초기화');
+    return {
+      ...EMPTY_AFTER_CALL_WORK_DATA,
+      callInfo: {
+        id: pending.consultationId,
+        datetime: pending.datetime,
+      },
+      customerInfo: (pending.customerId && pending.customerId !== 'CUST-TEDDY-00000') ? {
+        id: pending.customerId,
+        name: pending.customerName,
+        phone: pending.customerPhone,
+      } : EMPTY_AFTER_CALL_WORK_DATA.customerInfo,
+      currentCase: {
+        category: '기타',
+        summary: llmResult?.summary || '',
+        aiRecommendation: llmResult?.followUpTasks || '',
+      },
+    };
   }
 
   // TODO: DB 스키마 확정 후 매핑 로직 완성

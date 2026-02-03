@@ -6,6 +6,10 @@ export default function LoadingPage() {
   const location = useLocation();
   const { consultationId } = location.state || {};
   
+  // ⭐ consultationId가 없으면 pendingConsultation에서 가져오기
+  const pendingConsultation = JSON.parse(localStorage.getItem('pendingConsultation') || '{}');
+  const actualConsultationId = consultationId || pendingConsultation.consultationId || '';
+  
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
@@ -148,7 +152,14 @@ export default function LoadingPage() {
       setIsFadingOut(true);
       setTimeout(() => {
         sessionStorage.setItem('fromLoading', 'true');
-        navigate('/acw');
+        const isSimulationMode = sessionStorage.getItem('simulationMode') === 'true';
+        const educationType = sessionStorage.getItem('educationType') || 'basic';
+        navigate('/acw', {
+          state: {
+            mode: isSimulationMode ? 'simulation' : 'normal',
+            educationType: educationType
+          }
+        });
       }, 1200);
     };
 
@@ -159,7 +170,14 @@ export default function LoadingPage() {
       setIsFadingOut(true);
       setTimeout(() => {
         sessionStorage.setItem('fromLoading', 'true');
-        navigate('/acw');
+        const isSimulationMode = sessionStorage.getItem('simulationMode') === 'true';
+        const educationType = sessionStorage.getItem('educationType') || 'basic';
+        navigate('/acw', {
+          state: {
+            mode: isSimulationMode ? 'simulation' : 'normal',
+            educationType: educationType
+          }
+        });
       }, 1200);
     }, 10000);
 
@@ -182,7 +200,7 @@ export default function LoadingPage() {
       {/* 그리드 패턴 배경 */}
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA0IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-40"></div>
       
-      <div className="relative max-w-lg w-full space-y-12">
+      <div className="relative max-w-4xl w-full space-y-12">
         {/* 로고 */}
         <div className="text-center">
           <h1 className="text-5xl font-extrabold text-white mb-3 tracking-wider">
@@ -210,14 +228,13 @@ export default function LoadingPage() {
                 }}
               >
                 <p 
-                  className="text-center text-base text-white leading-loose px-4"
+                  className="text-center text-base text-white leading-loose px-4 truncate"
                   style={{
                     fontWeight: 250,
-                    letterSpacing: '0.10em',
+                    letterSpacing: '0.05em',
                     lineHeight: '1.8',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
                     textShadow: '0 2px 20px rgba(0, 0, 0, 0.3)',
-                    wordBreak: 'keep-all',
                     width: '100%',
                     maxWidth: '100%'
                   }}
@@ -230,7 +247,7 @@ export default function LoadingPage() {
         </div>
 
         {/* 진행률 바 + 상태 (왼쪽 상단에 작게) */}
-        <div className="space-y-2 px-4">
+        <div className="space-y-2 px-4 max-w-lg mx-auto w-full">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-white/60 font-light tracking-wide">
               {stepMessages[currentStep]}
@@ -249,12 +266,12 @@ export default function LoadingPage() {
           </div>
         </div>
 
-        {/* 상담 ID */}
-        {consultationId && (
+        {/* 상담 정보 */}
+        {actualConsultationId && (
           <div className="text-center px-4">
             <div className="inline-block px-5 py-2.5 bg-white/8 backdrop-blur-sm rounded-lg border border-white/15">
               <p className="text-xs text-white/50 mb-0.5 font-light">상담 ID</p>
-              <p className="text-sm font-medium text-white tracking-wide">{consultationId}</p>
+              <p className="text-sm font-medium text-white tracking-wide">{actualConsultationId}</p>
             </div>
           </div>
         )}

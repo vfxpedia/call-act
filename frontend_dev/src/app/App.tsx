@@ -70,7 +70,8 @@ export default function App() {
           <Route path="/admin/notice/create" element={<ProtectedRoute><AdminNoticeCreatePage /></ProtectedRoute>} />
           <Route path="/admin/notice/edit/:id" element={<ProtectedRoute><AdminNoticeEditPage /></ProtectedRoute>} />
           <Route path="/admin/consultations" element={<ProtectedRoute><AdminConsultationManagePage /></ProtectedRoute>} />
-          <Route path="/loading" element={<LoadingPage />} /> // ⭐ Phase 8-3: 로딩 페이지
+          {/* ⭐ Phase 8-3: 로딩 페이지 */}
+          <Route path="/loading" element={<LoadingPage />} />
         </Routes>
         {/* ⭐ Phase 10-2: Toast 알림 시스템 */}
         <Toaster 

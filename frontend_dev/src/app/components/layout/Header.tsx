@@ -1,10 +1,101 @@
-import { Bell, User, LogOut, Settings, Menu, Home, Phone, BookOpen, Users, BarChart3, Megaphone } from 'lucide-react';
+import { User, LogOut, Settings, Menu, Home, Phone, BookOpen, Users, BarChart3, Megaphone, HelpCircle, AlertCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useRef, useEffect, useMemo } from 'react';
 
 export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // ⭐ sessionStorage에서 교육 모드 확인 (location.state는 일회성이므로 sessionStorage 사용)
+  const [isSimulationMode, setIsSimulationMode] = useState(false);
+  const [educationType, setEducationType] = useState<'basic' | 'advanced'>('basic');
+  const [isGuideModeActive, setIsGuideModeActive] = useState(false);
+  
+  // ⭐ 진행 중인 통화/후처리 상태 확인
+  const [activeCallState, setActiveCallState] = useState<{ isActive: boolean; startTimestamp: number } | null>(null);
+  const [pendingACW, setPendingACW] = useState<{ consultationId: string } | null>(null);
+  const [currentCallTime, setCurrentCallTime] = useState(0); // 실시간 카운팅용
+  
+  useEffect(() => {
+    // sessionStorage에서 교육 모드 확인
+    const simulationMode = sessionStorage.getItem('simulationMode') === 'true';
+    setIsSimulationMode(simulationMode);
+    
+    // sessionStorage에서 교육 타입 확인
+    const eduType = sessionStorage.getItem('educationType') as 'basic' | 'advanced' | null;
+    setEducationType(eduType || 'basic');
+    
+    // localStorage에서 가이드 모드 확인
+    const guideModeActive = localStorage.getItem('isGuideModeActive') === 'true';
+    setIsGuideModeActive(guideModeActive);
+    
+    console.log('🔍 [Header] isSimulationMode:', simulationMode);
+    console.log('🔍 [Header] educationType:', eduType);
+    console.log('🔍 [Header] isGuideModeActive:', guideModeActive);
+    console.log('🔍 [Header] pathname:', location.pathname);
+    
+    // ⭐ 교육 모드 유지 경로: 상담 페이지, 로딩 페이지, 후처리 페이지
+    const keepSimulationPaths = ['/consultation/live', '/loading', '/acw'];
+    if (!keepSimulationPaths.includes(location.pathname)) {
+      sessionStorage.removeItem('simulationMode');
+      sessionStorage.removeItem('educationType');
+      setIsSimulationMode(false);
+    }
+  }, [location.pathname]);
+  
+  // ⭐ 진행 중인 통화/후처리 상태 실시간 확인 (1초마다)
+  useEffect(() => {
+    const checkActiveStates = () => {
+      // 진행 중인 통화 확인
+      const activeCallStr = localStorage.getItem('activeCallState');
+      if (activeCallStr) {
+        try {
+          const callState = JSON.parse(activeCallStr);
+          setActiveCallState(callState);
+          
+          // 실시간 카운팅 계산
+          if (callState.startTimestamp) {
+            const elapsed = Math.floor((Date.now() - callState.startTimestamp) / 1000);
+            setCurrentCallTime(elapsed);
+          }
+        } catch {
+          setActiveCallState(null);
+        }
+      } else {
+        setActiveCallState(null);
+        setCurrentCallTime(0);
+      }
+      
+      // 미처리 후처리 확인
+      const pendingACWStr = localStorage.getItem('pendingACW');
+      if (pendingACWStr) {
+        try {
+          const acwState = JSON.parse(pendingACWStr);
+          setPendingACW(acwState);
+        } catch {
+          setPendingACW(null);
+        }
+      } else {
+        setPendingACW(null);
+      }
+      
+      // 가이드 모드 활성화 상태 확인
+      const guideModeActive = localStorage.getItem('isGuideModeActive') === 'true';
+      setIsGuideModeActive(guideModeActive);
+    };
+    
+    // 초기 확인
+    checkActiveStates();
+    
+    // 1초마다 확인
+    const interval = setInterval(checkActiveStates, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  const themeColor = isSimulationMode ? '#10B981' : '#0047AB';
+  const themeTextClass = isSimulationMode ? 'text-[#10B981]' : 'text-[#0047AB]';
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -61,8 +152,51 @@ export default function Header() {
     setIsMobileMenuOpen(false);
   };
   
+  // 교육 모드에 따른 배경색 (그라데이션)
+  const headerBgClass = isSimulationMode 
+    ? (educationType === 'advanced' 
+        ? 'bg-gradient-to-r from-amber-50 to-yellow-50' 
+        : 'bg-gradient-to-r from-green-50 to-emerald-50')
+    : 'bg-white';
+  
+  const headerBorderClass = isSimulationMode 
+    ? (educationType === 'advanced' 
+        ? 'border-amber-200/40' 
+        : 'border-[#10B981]/30')
+    : 'border-[#E0E0E0]';
+  
+  // 교육 모드 정보 텍스트
+  const educationModeTitle = educationType === 'advanced' 
+    ? '우수 상담 사례 학습 모드' 
+    : '교육 시뮬레이션 모드';
+  
+  const educationModeSubtitle = educationType === 'advanced'
+    ? '실제 상담 사례로 최고의 상담 스킬 습득하기'
+    : '안전하게 연습하세요';
+
   return (
-    <header className="h-[60px] bg-white border-b border-[#E0E0E0] flex items-center justify-between px-3 sm:px-6 fixed top-0 left-0 right-0 z-50">
+    <header className={`h-[60px] ${headerBgClass} border-b ${headerBorderClass} flex items-center justify-between px-3 sm:px-6 fixed top-0 left-0 right-0 z-50 transition-colors duration-300`}>
+      <style>{`
+        @keyframes textShimmer {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .animate-text-shimmer {
+          background: linear-gradient(
+            90deg, 
+            #059669 0%, 
+            #34D399 25%, 
+            #059669 50%, 
+            #34D399 75%, 
+            #059669 100%
+          );
+          background-size: 200% auto;
+          color: transparent;
+          -webkit-background-clip: text;
+          background-clip: text;
+          animation: textShimmer 3s linear infinite;
+        }
+      `}</style>
       {/* Left Side - Logo & Mobile Menu */}
       <div className="flex items-center gap-2">
         {/* Mobile Menu Button (lg 미만에서만 표시) */}
@@ -131,19 +265,80 @@ export default function Header() {
 
         <button 
           onClick={() => navigate('/dashboard')}
-          className="hover:opacity-80 transition-opacity"
+          className="hover:opacity-80 transition-opacity flex items-center gap-3"
         >
-          <h1 className="text-base sm:text-lg font-bold text-[#0047AB]">CALL:ACT</h1>
+          <h1 className={`text-base sm:text-lg font-bold ${themeTextClass}`}>CALL:ACT</h1>
+          
+          {/* Simulation Mode Text with Shimmer Animation */}
+          {isSimulationMode && (
+            <span className="text-sm font-extrabold animate-text-shimmer tracking-wider hidden sm:block">
+              TRAINING MODE
+            </span>
+          )}
         </button>
+        
+        {/* ⭐ 가이드 배지 (교육 모드이고 가이드 활성화 시) */}
+        {isSimulationMode && isGuideModeActive && (
+          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400 text-gray-900 rounded-lg shadow-sm animate-pulse">
+            <AlertCircle className="w-4 h-4" />
+            <span className="text-xs font-bold">가이드</span>
+          </span>
+        )}
+        
+        {/* ⭐ 가이드 시작 버튼 (교육 모드이고 가이드 비활성화 시) */}
+        {isSimulationMode && !isGuideModeActive && location.pathname === '/consultation/live' && (
+          <button
+            onClick={() => {
+              // localStorage에 가이드 시작 요청 플래그 설정
+              localStorage.setItem('startGuideRequested', 'true');
+              window.dispatchEvent(new Event('storage'));
+            }}
+            className="flex items-center gap-1.5 bg-emerald-400 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition-all duration-300 hover:scale-105 shadow-sm"
+            title="교육 가이드 다시 보기"
+          >
+            <HelpCircle className="w-4 h-4" />
+            <span className="text-xs font-medium">가이드</span>
+          </button>
+        )}
+        
+        {/* ⭐ 진행 중 상태 배지 */}
+        {activeCallState && activeCallState.isActive && (
+          <button
+            onClick={() => navigate('/consultation/live')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-[#EA4335] to-[#D32F2F] text-white rounded-lg hover:shadow-lg transition-all text-xs font-semibold"
+            title="진행 중인 통화로 이동"
+          >
+            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+            <span className="hidden sm:inline">통화 중</span>
+            <span className="tabular-nums">{Math.floor(currentCallTime / 60)}:{String(currentCallTime % 60).padStart(2, '0')}</span>
+          </button>
+        )}
+        
+        {pendingACW && !activeCallState && (
+          <button
+            onClick={() => navigate('/acw')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-[#0047AB] to-[#003580] text-white rounded-lg hover:shadow-lg transition-all text-xs font-semibold"
+            title="미처리 후처리로 이동"
+          >
+            <span className="hidden sm:inline">📝</span>
+            <span>후처리 대기</span>
+          </button>
+        )}
       </div>
 
-      {/* Right Side - Notifications & Profile */}
-      <div className="flex items-center gap-2 sm:gap-4">
-        {/* Notification Icon */}
-        <button className="relative p-2 hover:bg-[#F5F5F5] rounded-full transition-colors">
-          <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-[#666666]" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-[#EA4335] rounded-full"></span>
-        </button>
+      {/* Right Side - Education Mode Info & Profile */}
+      <div className="flex items-center gap-3 sm:gap-4">
+        {/* 교육 모드 정보 (교육 모드일 때만 표시) */}
+        {isSimulationMode && (
+          <div className="text-right hidden lg:block">
+            <div className="text-sm font-bold text-gray-800 leading-tight">
+              {educationModeTitle}
+            </div>
+            <div className="text-xs text-gray-600 leading-tight mt-0.5">
+              {educationModeSubtitle}
+            </div>
+          </div>
+        )}
 
         {/* User Profile Dropdown */}
         <div className="relative" ref={dropdownRef}>

@@ -12,8 +12,32 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const { isSidebarExpanded, setIsSidebarExpanded, isPinned, setIsPinned } = useSidebar();
   const location = useLocation();
 
-  // 상담 페이지 여부 확인 (fixed layout 페이지)
-  const isConsultationPage = location.pathname === '/consultation' || location.pathname === '/consultation/live';
+  // ⭐ 상담 페이지 여부 확인 (헤더를 포함한 전체 화면 사용)
+  const isConsultationPage = 
+    location.pathname === '/consultation' || 
+    location.pathname === '/consultation/live' || 
+    location.pathname === '/consultation/after-call-work' || 
+    location.pathname === '/acw';
+
+  // ⭐ 교육 시뮬레이션 페이지 (헤더 아래 고정 레이아웃)
+  const isSimulationPage = location.pathname === '/simulation';
+
+  // ⭐ body 스크롤 제거 (상담 + 교육 시뮬레이션)
+  useEffect(() => {
+    if (isConsultationPage || isSimulationPage) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+
+    // cleanup
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [isConsultationPage, isSimulationPage]);
 
   // 최초 호버 시 자동으로 고정
   const handleMouseEnter = () => {
@@ -34,7 +58,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5]">
+    <div className={`bg-[#F5F5F5] ${isConsultationPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
       <Header />
       
       <Sidebar 
@@ -49,6 +73,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           ${!isConsultationPage ? 'mt-[60px]' : ''} 
           transition-all duration-300 
           ${!isConsultationPage ? (isSidebarExpanded ? 'lg:ml-[200px]' : 'lg:ml-[56px]') : ''}
+          ${(isConsultationPage || isSimulationPage) ? 'overflow-hidden' : ''}
         `}
         onClick={handleMainClick}
       >

@@ -130,9 +130,9 @@ export default function FeedbackModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] flex flex-col shadow-2xl">
         {/* 헤더 */}
-        <div className="bg-gradient-to-r from-[#0047AB] to-[#003580] text-white p-4 rounded-t-lg flex items-center justify-between">
+        <div className="bg-gradient-to-r from-[#0047AB] to-[#003580] text-white p-3 rounded-t-lg flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div>
               <h2 className="text-lg font-bold">🎯 상담 품질 피드백</h2>
@@ -155,13 +155,13 @@ export default function FeedbackModal({
         </div>
 
         {/* 본문 */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4">
           {/* 2열 레이아웃: 좌측 오각형 차트 + 우측 점수 */}
-          <div className="grid grid-cols-2 gap-6 mb-5">
+          <div className="grid grid-cols-2 gap-4 mb-3">
             {/* 좌측: 오각형 차트 */}
-            <div className="bg-[#F8FBFF] rounded-lg p-4 border border-[#0047AB]/10">
-              <p className="text-sm font-semibold text-[#333333] mb-3 text-center">매뉴얼 준수 5개 항목</p>
-              <ResponsiveContainer width="100%" height={280}>
+            <div className="bg-[#F8FBFF] rounded-lg p-3 border border-[#0047AB]/10 flex flex-col justify-center">
+              <p className="text-sm font-semibold text-[#333333] mb-2 text-center">매뉴얼 준수 5개 항목</p>
+              <ResponsiveContainer width="100%" height={220}>
                 <RadarChart data={radarData}>
                   <PolarGrid stroke="#E0E0E0" />
                   <PolarAngleAxis 
@@ -302,9 +302,9 @@ export default function FeedbackModal({
           </div>
 
           {/* AHT (Average Handle Time) */}
-          <div className="mb-5 p-4 bg-gradient-to-r from-[#F8FBFF] to-[#FFF9F0] rounded-lg border border-[#0047AB]/20">
-            <p className="text-sm font-semibold text-[#333333] mb-3 text-center">💼 총 처리 시간 (AHT)</p>
-            <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="mb-3 p-3 bg-gradient-to-r from-[#F8FBFF] to-[#FFF9F0] rounded-lg border border-[#0047AB]/20">
+            <p className="text-sm font-semibold text-[#333333] mb-2 text-center">💼 총 처리 시간 (AHT)</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
               <div>
                 <p className="text-xs text-[#666666] mb-1">📞 통화 시간</p>
                 <p className="text-lg font-bold text-[#0047AB]">{callTimeDisplay}</p>
@@ -318,14 +318,14 @@ export default function FeedbackModal({
                 <p className="text-lg font-bold text-[#FBBC04]">{ahtDisplay}</p>
               </div>
             </div>
-            <p className="text-center text-xs text-[#666666] mt-3">
+            <p className="text-center text-xs text-[#666666] mt-2">
               {ahtMessage}
             </p>
           </div>
 
           {/* 감정 변화 */}
-          <div className="mb-5 p-4 bg-[#F8FBFF] rounded-lg border border-[#0047AB]/20">
-            <p className="text-sm font-semibold text-[#333333] mb-3">감정 변화</p>
+          <div className="mb-3 p-3 bg-[#F8FBFF] rounded-lg border border-[#0047AB]/20">
+            <p className="text-sm font-semibold text-[#333333] mb-2">감정 변화</p>
             <div className="flex items-center justify-center gap-3">
               <div className="text-center">
                 <div className="text-3xl mb-1">{emotionEmoji[mockFeedbackData.emotion.early]}</div>
@@ -452,7 +452,7 @@ export default function FeedbackModal({
         </div>
 
         {/* 푸터 */}
-        <div className="p-4 border-t border-[#E0E0E0] flex gap-3 justify-end bg-[#FAFAFA] rounded-b-lg">
+        <div className="p-3 border-t border-[#E0E0E0] flex gap-3 justify-end bg-[#FAFAFA] rounded-b-lg">
           <Button
             variant="outline"
             onClick={onClose}

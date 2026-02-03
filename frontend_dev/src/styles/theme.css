@@ -199,6 +199,13 @@
     line-height: 1.5;
   }
   
+  /* ⭐ 타임스탬프 이탤릭 강제 적용 */
+  em[style*="fontStyle: 'italic'"],
+  .italic,
+  [class*="italic"] {
+    font-style: italic !important;
+  }
+  
   /* ⭐ STT 및 칸반보드 애니메이션 */
   @keyframes fadeIn {
     from {
@@ -209,6 +216,20 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  /* ⭐ 튜토리얼 가이드 말풍선 애니메이션 (fade-in only) */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out forwards;
   }
 
   @keyframes slideDownFade {
@@ -321,6 +342,35 @@
   
   .scrollbar-hide::-webkit-scrollbar {
     display: none;  /* Chrome, Safari, Opera */
+  }
+
+  /* ⭐ 텍스트 선택 가능하도록 설정 */
+  .select-text {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+  
+  .select-text * {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+  
+  /* ⭐ 대기콜 긴급 카드 배경 깜빡임 (텍스트는 그대로) */
+  @keyframes urgent-blink {
+    0%, 100% {
+      background-color: #FFF5F5;
+    }
+    50% {
+      background-color: #FFDDDD;
+    }
+  }
+  
+  .animate-urgent-blink {
+    animation: urgent-blink 1.5s ease-in-out infinite;
   }
 }
 

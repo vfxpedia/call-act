@@ -1,0 +1,25 @@
+// 새로운 handleSearch 함수 (라인 1789-1816을 이것으로 교체)
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    const query = searchQuery.trim();
+    
+    try {
+      const result = await simulateSearch(query);
+      
+      if (isCallActive && result.cards.length > 0) {
+        const historyItem = saveSearchHistory(result);
+        setSearchHistory(getSearchHistory());
+        console.log(`🔍 검색 완료: "${query}" (${result.cards.length}건, ${result.accuracy}% 매칭, ${result.searchTime}ms)`);
+      } else if (result.cards.length === 0) {
+        console.log(`🔍 검색 결과 없음: "${query}"`);
+      }
+    } catch (error) {
+      console.error('검색 중 오류 발생:', error);
+    } finally {
+      setIsSearching(false);
+      setSearchQuery('');
+    }
+  };
