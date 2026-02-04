@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import MainLayout from '../components/layout/MainLayout';
 import { UserPlus, Edit2, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import { employeesData } from '../../data/mockData';
+import { employeesData } from '@/data/mock';
 import AddEmployeeModal from '../components/modals/AddEmployeeModal';
 import EditEmployeeModal from '../components/modals/EditEmployeeModal';
 import { Input } from '../components/ui/input';

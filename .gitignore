@@ -149,6 +149,10 @@ backend_dev/app/db/scripts/embedding_checkpoint.json
 backend_dev/app/db/scripts/embedding_generation.log
 backend_dev/app/db/scripts/.env
 
+# Large embedding data files (exceed GitHub 100MB limit)
+backend_dev/app/db/data/hana/
+backend_dev/app/db/data/teddycard/
+
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -210,3 +214,19 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Backup folders
+.back/
+*.bak/
+*.broken.bak/
+
+# Sensitive files
+*.env.backup
+.env.backup
+
+# Windows special files
+nul

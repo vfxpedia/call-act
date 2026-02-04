@@ -1,11 +1,11 @@
+import { ChevronLeft, ChevronRight, Search, Plus, Edit, Eye, Pin, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { noticesData as initialNoticesData } from '@/data/mock';
 import MainLayout from '../components/layout/MainLayout';
-import { Plus, Edit, Trash2, Pin, Eye, Search } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { noticesData as initialNoticesData } from '../../data/mockData';
 
 export default function AdminNoticePage() {
   const navigate = useNavigate();

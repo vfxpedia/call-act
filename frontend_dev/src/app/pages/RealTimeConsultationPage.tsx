@@ -1,7 +1,7 @@
 import MainLayout from '../components/layout/MainLayout';
-import { Phone, PhoneOff, Save, Send, Lightbulb, Copy, Bot, User, ChevronLeft, ChevronRight, X, FileText, HelpCircle, Search } from 'lucide-react';
+import { Phone, PhoneOff, Save, Send, Lightbulb, Copy, Bot, User, ChevronLeft, ChevronRight, ChevronDown, X, FileText, HelpCircle, Search } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSidebar } from '../contexts/SidebarContext';
 import { scenarios, getScenarioByCategory, type Scenario, type ScenarioCard } from '../../data/scenarios';
@@ -31,7 +31,14 @@ import { tutorialStepsPhase1, tutorialStepsPhase2 } from '@/data/tutorialSteps';
 import { InfoCard } from '@/app/components/consultation/InfoCard';
 import { addTimestampToCard } from '@/utils/timeFormatter';
 import { SearchHistoryDropdown } from '@/app/components/consultation/SearchHistoryDropdown';
+import { SearchResultLayer } from '@/app/components/consultation/SearchResultLayer';
+import { SearchLayer } from '@/app/components/consultation/SearchLayer';
+import { motion, AnimatePresence } from 'motion/react';
+import { handleSearchExecution } from '@/utils/searchLayerHelpers';
+import { useLayerNavigation } from '@/hooks/useLayerNavigation';
+import { useVoiceRecorder, type RAGResponse, type RAGCard } from '../hooks/useVoiceRecoders';
 import { simulateSearch, getSearchHistory, clearSearchHistory, saveSearchHistory, type SearchHistoryItem } from '@/utils/searchSimulator';
+import { LayerTransitionWrapper } from '@/app/components/consultation/LayerTransitionWrapper';
 
 // Mock Data (기본값 - 통화 전)
 const defaultCustomerInfo = {
@@ -269,7 +276,7 @@ export default function RealTimeConsultationPage() {
   
   // Sidebar Context 사용
   const { isSidebarExpanded } = useSidebar();
-  
+
   // Local state
   // ⭐ 통화 상태 - 초기값을 localStorage에서 확인
   const [isCallActive, setIsCallActive] = useState(() => {
@@ -344,6 +351,16 @@ export default function RealTimeConsultationPage() {
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false); // 참조문서 상세 모달
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null); // 선택된 문서 ID
   
+  // ⭐ 검색 레이어 관련 상태
+  const [activeLayer, setActiveLayer] = useState<'kanban' | 'search'>('kanban'); // 활성 레이어
+  const [searchResults, setSearchResults] = useState<ScenarioCard[][]>([]); // 검색 결과 (2차원 배열)
+  const [consultationReferences, setConsultationReferences] = useState<ScenarioCard[]>([]); // 후처리 참조 문서 (통화 중에만 저장)
+  const [focusedCardIds, setFocusedCardIds] = useState<string[]>([]); // 포커싱된 카드 ID들
+  const [focusedCard, setFocusedCard] = useState<{row: number, col: number}>({row: 0, col: 0}); // 키보드 네비게이션용
+  const [isWheelThrottled, setIsWheelThrottled] = useState(false); // 휠 스크롤 쓰로틀링
+  const [isAtBoundary, setIsAtBoundary] = useState(false); // 경계 lock 상태
+  const [wheelDirection, setWheelDirection] = useState<'up' | 'down' | undefined>(undefined); // 휠 방향
+  
   // STT 실시간 분석 state ⭐ NEW
   const [sttTexts, setSttTexts] = useState<{text: string, isKeyword: boolean, speaker?: 'agent' | 'customer'}[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false); // 칸반보드 로딩 상태
@@ -354,7 +371,80 @@ export default function RealTimeConsultationPage() {
     message: string;
     timestamp: number; // 초 단위
   }>>([]);
-  
+
+  // ⭐ [v23] RAG 실시간 결과 (웹소켓 응답)
+  const [ragCurrentCards, setRagCurrentCards] = useState<RAGCard[]>([]);
+  const [ragNextCards, setRagNextCards] = useState<RAGCard[]>([]);
+  const [ragGuidanceScript, setRagGuidanceScript] = useState<string>('');
+
+  // ⭐ [v23] RAGCard → ScenarioCard 변환 함수
+  const convertRagToScenarioCard = useCallback((ragCard: RAGCard, index: number): ScenarioCard => {
+    return {
+      id: ragCard.id || `rag-${Date.now()}-${index}`,
+      title: ragCard.title || '정보 카드',
+      keywords: ragCard.keywords || [],
+      content: ragCard.content || '',
+      systemPath: (ragCard as Record<string, unknown>).systemPath as string || '',
+      requiredChecks: (ragCard as Record<string, unknown>).requiredChecks as string[] || [],
+      exceptions: (ragCard as Record<string, unknown>).exceptions as string[] || [],
+      time: (ragCard as Record<string, unknown>).time as string || '',
+      note: (ragCard as Record<string, unknown>).note as string || '',
+      regulation: (ragCard as Record<string, unknown>).regulation as string || '',
+      fullText: (ragCard as Record<string, unknown>).detailContent as string || ragCard.content || '',
+      relevanceScore: (ragCard as Record<string, unknown>).relevanceScore as number || 0,
+      timestamp: new Date().toISOString(),
+      displayTime: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')} (방금 전)`,
+    };
+  }, []);
+
+  // ⭐ [v23] 웹소켓 음성 녹음 + RAG 결과 수신
+  const handleRagResult = useCallback((data: RAGResponse) => {
+    console.log('[RAG] 결과 수신:', data);
+
+    // 현재 상황 카드 업데이트 (최대 4개 유지)
+    if (data.currentSituation && data.currentSituation.length > 0) {
+      setRagCurrentCards(prev => {
+        const newCards = [...prev, ...data.currentSituation];
+        return newCards.slice(-4); // 최신 4개만 유지
+      });
+      // 칸반보드 표시
+      setIsKeywordDetected(true);
+      setShowNextStepCards(true);
+    }
+
+    // 다음 단계 카드 업데이트 (최대 4개 유지)
+    if (data.nextStep && data.nextStep.length > 0) {
+      setRagNextCards(prev => {
+        const newCards = [...prev, ...data.nextStep];
+        return newCards.slice(-4);
+      });
+    }
+
+    // 안내 스크립트 업데이트
+    if (data.guidanceScript) {
+      setRagGuidanceScript(data.guidanceScript);
+    }
+
+    // 키워드 추출 (routing에서)
+    if (data.routing) {
+      const routing = data.routing as Record<string, unknown>;
+      const keywords: string[] = [];
+      if (routing.card_name) keywords.push(String(routing.card_name));
+      if (routing.intent) keywords.push(String(routing.intent));
+      if (keywords.length > 0) {
+        setIncomingKeywords(prev => {
+          const combined = [...new Set([...prev, ...keywords])];
+          return combined.slice(0, 3); // 최대 3개
+        });
+      }
+    }
+  }, []);
+
+  const { start: startRecording, stop: stopRecording, wsStatus, sessionId } = useVoiceRecorder({
+    onRagResult: handleRagResult,
+    onSessionId: (id) => console.log('[WebSocket] 세션 연결:', id),
+  });
+
   const [incomingKeywords, setIncomingKeywords] = useState<string[]>(() => {
     const activeCallState = localStorage.getItem('activeCallState');
     if (activeCallState) {
@@ -1100,6 +1190,12 @@ export default function RealTimeConsultationPage() {
       setMaxReachedStep(0);
       displayedSttIndexRef.current = 0;
       setIsDirectIncoming(false);
+      
+      // ⭐ 검색 레이어 관련 초기화
+      setConsultationReferences([]); // 참조 문서 초기화
+      setSearchResults([]); // 검색 레이어 초기화
+      setActiveLayer('kanban'); // 칸반 레이어로 리셋
+      // ⚠️ clearSearchHistory()는 호출하지 않음 - 검색 이력은 유지
     }
   
     // Cleanup: WebSocket 연결 종료
@@ -1509,9 +1605,15 @@ export default function RealTimeConsultationPage() {
     setShowNextStepCards(false);
     setShowCustomerInfo(false);
     setShowRecentConsultations(false);
-    
+
+    // ⭐ [v23] RAG 카드 초기화
+    setRagCurrentCards([]);
+    setRagNextCards([]);
+    setRagGuidanceScript('');
+
     // 상태 초기화
     setIsCallActive(true);
+    startRecording(); // ⭐ 웹소켓 녹음 시작
     setIsIncomingCall(false);
     setCallTime(0);
     setConsultationStartTime(''); // ⭐ 이전 시간 초기화
@@ -1544,25 +1646,42 @@ export default function RealTimeConsultationPage() {
     const minute = String(now.getMinutes()).padStart(2, '0');
     setConsultationStartTime(`${year}-${month}-${day} ${hour}:${minute}`);
     
-    // ⭐ 교육 모드: 시나리오 데이터 로드 (백엔드 API)
-    if (isSimulationMode) {
-      setIsExtractingKeywords(true);
-      console.log('🎓 교육 모드: 다이렉트 콜 시작 (시나리오 데이터 로드)');
-      
-      // ⭐ 시나리오 ID 가져오기
-      const scenarioId = activeScenario?.id || location.state?.scenarioId || 'SIM-001';
-      
-      // ⭐ 백엔드 API 호출 (현재는 Mock)
-      fetchScenarioData(scenarioId);
-      return;
-    }
-    
-    // ⭐ 실제 상담 모드: 다이렉트 인입 시 키워드 추출 중 상태만 표시
-    if (isDirectIncoming) {
-      setIsExtractingKeywords(true);
-      console.log('📞 실제 상담: 다이렉트 인입 (백엔드 연동 대기)');
-      // TODO: 백엔드 API 연동하여 실시간 STT, 키워드 추출, 정보 카드 로드
-    }
+    // ⭐ [v23] 다이렉트 콜: 랜덤 고객 API 호출 + 웹소켓 RAG 사용
+    // 교육 모드/실제 모드 모두 동일하게 백엔드 연동
+    setIsExtractingKeywords(true);
+    console.log('📞 다이렉트 콜: 랜덤 고객 API 호출 + 웹소켓 RAG 연동');
+
+    // 랜덤 고객 정보 API 호출
+    fetch('http://127.0.0.1:8000/api/v1/customers/random')
+      .then(res => res.json())
+      .then(response => {
+        if (response.success && response.data) {
+          const customer = response.data;
+          console.log('👤 랜덤 고객 정보 수신:', customer);
+
+          setCustomerInfo({
+            id: customer.id || 'CUST-UNKNOWN',
+            name: customer.name || '고객',
+            phone: customer.phone || '010-0000-0000',
+            birthDate: customer.birthDate || '1990-01-01',
+            address: customer.address || '주소 미등록',
+            cardName: customer.cardName,
+            cardNumber: customer.cardNumber,
+            cardIssueDate: customer.cardIssueDate,
+            cardExpiryDate: customer.cardExpiryDate,
+          });
+
+          // 고객 정보 표시
+          setTimeout(() => setShowCustomerInfo(true), 500);
+        }
+      })
+      .catch(err => {
+        console.warn('⚠️ 랜덤 고객 API 실패, 기본값 사용:', err);
+        // 기본 고객 정보 표시
+        setTimeout(() => setShowCustomerInfo(true), 500);
+      });
+
+    // 웹소켓 + RAG로 칸반보드 카드 표시 (handleRagResult 콜백에서 처리)
   };
 
   const handleCopyScript = () => {
@@ -1571,6 +1690,7 @@ export default function RealTimeConsultationPage() {
 
   // ⭐ 드래그 시작 - Step 전환용
   const handleStepDragStart = (e: React.MouseEvent, container: 'current' | 'next') => {
+    console.log('🖱️ 드래그 시작:', container, 'currentStep:', currentStep);
     isDraggingRef.current = true;
     startXRef.current = e.pageX;
     dragDistanceRef.current = 0;
@@ -1589,6 +1709,7 @@ export default function RealTimeConsultationPage() {
   // ⭐ 드래그 종료 - Step 전환용
   const handleStepDragEnd = (e: React.MouseEvent) => {
     if (!isDraggingRef.current) return;
+    console.log('🖱️ 드래그 종료:', 'distance:', dragDistanceRef.current, 'threshold:', 100);
     isDraggingRef.current = false;
     activeContainerRef.current = null;
     e.currentTarget.style.cursor = 'grab';
@@ -1751,7 +1872,8 @@ export default function RealTimeConsultationPage() {
     } else {
       console.warn('⚠️ [통화 종료] STT 데이터 없음 - 상담 전문 저장 불가');
     }
-    
+
+    stopRecording(); // ⭐ 웹소켓 녹음 종료
     setIsCallActive(false);
     setIsEndCallModalOpen(false);
     setStartTimestamp(0); // ⭐ 타임스탬프 초기화
@@ -1899,26 +2021,17 @@ export default function RealTimeConsultationPage() {
     const query = searchQuery.trim();
     
     try {
-      const result = await simulateSearch(query);
-      
-      if (isCallActive && result.cards.length > 0) {
-        const historyItem = saveSearchHistory(result);
-        setSearchHistory(getSearchHistory());
-        
-        // ⭐ 검색 시 자동으로 검색 이력 펼치기
-        setIsSearchHistoryOpen(true);
-        
-        // ⭐ 현재 세션의 검색 문서 ���적 (중복 제거)
-        const newDocumentIds = result.cards.map(card => card.id);
-        setSearchedDocuments(prev => {
-          const uniqueIds = Array.from(new Set([...prev, ...newDocumentIds]));
-          return uniqueIds;
-        });
-        
-        console.log(`🔍 검색 완료: "${query}" (${result.cards.length}건, ${result.accuracy}% 매칭, ${result.searchTime}ms)`);
-      } else if (result.cards.length === 0) {
-        console.log(`🔍 검색 결과 없음: "${query}"`);
-      }
+      await handleSearchExecution({
+        query,
+        isCallActive,
+        setSearchHistory,
+        setSearchResults,
+        setConsultationReferences,
+        setSearchedDocuments,
+        setActiveLayer,
+        setFocusedCardIds,
+        setIsSearchHistoryOpen
+      });
     } catch (error) {
       console.error('검색 중 오류 발생:', error);
     } finally {
@@ -1927,6 +2040,24 @@ export default function RealTimeConsultationPage() {
     }
   };
 
+  // ⭐ 레이어 네비게이션 (키보드/휠)
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useLayerNavigation({
+    activeLayer,
+    setActiveLayer,
+    focusedCard,
+    setFocusedCard,
+    isWheelThrottled,
+    setIsWheelThrottled,
+    isAtBoundary,
+    setIsAtBoundary,
+    isModalOpen: isDocumentModalOpen || isEndCallModalOpen,
+    searchInputRef,
+    cardAreaId: 'card-layer-area',
+    setWheelDirection
+  });
+  
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -2063,9 +2194,10 @@ export default function RealTimeConsultationPage() {
 
     // 통화 시작
     setIsCallActive(true);
+    
     setCallTime(0);
     setStartTimestamp(0); // ⭐ 타임스탬프 초기화
-    
+    setActiveLayer('kanban'); // 인입 시 칸반 레이어로 전환
     // ⭐ 통화 시작 타임스탬프 설정 (고정값)
     const nowTimestamp = Date.now();
     setStartTimestamp(nowTimestamp);
@@ -2391,342 +2523,341 @@ export default function RealTimeConsultationPage() {
 
         {/* 중앙 열 - 동적 너비 (데스크톱: 동적, 모바일: 탭 전환) */}
         <div className={`
-          bg-white p-5 transition-all duration-300 flex flex-col min-h-0
+          p-5 transition-all duration-300 flex flex-col min-h-0
+          ${activeLayer === 'search' ? 'bg-gradient-to-b from-[#F5F3FF] to-white' : 'bg-white'}
           ${mobileTab === 'consultation' ? 'flex' : 'hidden lg:flex'}
           ${isLeftSidebarCollapsed ? 'lg:w-[calc(75%-0px)]' : 'lg:w-[calc(75%-200px)]'}
           w-full ${isCallActive ? 'mt-[89px]' : 'mt-[49px]'} lg:mt-0
           h-full overflow-y-auto
         `}>
-          {/* ⭐ 대기 중 UI */}
-          {!isCallActive && (
-            <div className="flex flex-col h-full relative">
-              {/* ⭐ 교육 모드(가이드 아닌): "통화 연결중" 표시 */}
-              {isSimulationMode && !isGuideModeActive && (
-                <div id="scenario-selector" className="flex-shrink-0 mb-4 relative z-10">
-                  <div className="bg-gradient-to-r from-[#10B981] to-[#059669] rounded-lg p-4 shadow-lg border-2 border-[#10B981] animate-pulse">
-                    <div className="flex items-center justify-center gap-3">
-                      <div className="relative flex items-center justify-center">
-                        <div className="absolute w-8 h-8 bg-white/30 rounded-full animate-ping"></div>
-                        <div className="relative w-6 h-6 bg-white rounded-full flex items-center justify-center">
-                          <Phone className="w-3 h-3 text-[#10B981]" />
+          <LayerTransitionWrapper
+            activeLayer={activeLayer}
+            isAtBoundary={isAtBoundary}
+            isCallActive={isCallActive}
+            wheelDirection={wheelDirection}
+            kanbanContent={
+              <>
+                {/* ⭐ 대기 중 UI (통화 전) */}
+                {!isCallActive && (
+                  <div className="flex flex-col h-full relative min-h-[500px] justify-center">
+                    {/* ⭐ 교육 모드(가이드 아닌): "통화 연결중" 표시 */}
+                    {isSimulationMode && !isGuideModeActive && (
+                      <div id="scenario-selector" className="absolute top-0 left-0 right-0 z-10 mb-4">
+                        <div className="bg-gradient-to-r from-[#10B981] to-[#059669] rounded-lg p-4 shadow-lg border-2 border-[#10B981] animate-pulse">
+                          <div className="flex items-center justify-center gap-3">
+                            <div className="relative flex items-center justify-center">
+                              <div className="absolute w-8 h-8 bg-white/30 rounded-full animate-ping"></div>
+                              <div className="relative w-6 h-6 bg-white rounded-full flex items-center justify-center">
+                                <Phone className="w-3 h-3 text-[#10B981]" />
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <h3 className="text-base font-bold text-white mb-1">🎓 교육 시나리오 대기중</h3>
+                              <p className="text-xs text-white/90">
+                                우측 상단 <strong>통화 버튼</strong>을 클릭하여 교육을 시작하세요
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div className="text-center">
-                        <h3 className="text-base font-bold text-white mb-1">🎓 교육 시나리오 대기중</h3>
-                        <p className="text-xs text-white/90">
-                          우측 상단 <strong>통화 버튼</strong>을 클릭하여 교육을 시작하세요
-                        </p>
+                    )}
+
+                    {/* ⭐ 상담 시작 안내 - 센터 정렬 */}
+                    <div className="flex items-center justify-center">
+                      <div className="text-center max-w-md">
+                        {/* ⭐ 교육 모드: 무조건 "통화 연결 중" 표시 */}
+                        {(isSimulationMode && !isGuideModeActive) || isIncomingCall ? (
+                          <>
+                            <div className="w-20 h-20 mx-auto mb-8 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                              <Phone className="w-9 h-9 text-white animate-bounce" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-[#10B981] mb-4">통화 연결 중</h2>
+                            <p className="text-base text-[#666666] mb-2">고객의 전화가 연결되고 있습니다</p>
+                            <p className="text-base text-[#666666]">통화 버튼을 클릭하여 응대를 시작하세요</p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-20 h-20 mx-auto mb-8 bg-gradient-to-br from-[#0047AB] to-[#003580] rounded-full flex items-center justify-center shadow-lg animate-wave-flow">
+                              <Phone className="w-9 h-9 text-white" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-[#0047AB] mb-4">상담 대기 중</h2>
+                            <p className="text-base text-[#666666] mb-2">통화 시작 버튼을 클릭하여 상담을 시작하세요</p>
+                            <p className="text-base text-[#666666] mb-6">대기 시간이 긴 고객을 우선 응대해주세요</p>
+                            
+                            {/* 쌍 V 가이드 - 휠 다운 안내 */}
+                            <div className="mt-8 flex flex-col items-center">
+                              <div className="flex flex-col items-center animate-bounce">
+                                <ChevronDown className="w-6 h-6 text-[#0047AB]/40" style={{ marginBottom: '-8px' }} />
+                                <ChevronDown className="w-6 h-6 text-[#0047AB]/60" />
+                              </div>
+                              <p className="text-xs text-[#999999] mt-2">휠을 내려서 검색 레이어 보기</p>
+                            </div>
+                          </>
+                        )}
                       </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ⭐ 상담 시작 안내 - 절대 위치로 화면 전체 중앙 고정 (배너와 무관) */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="text-center max-w-md pointer-events-auto">
-                  {/* ⭐ 교육 모드: 무조건 "통화 연결 중" 표시 */}
-                  {(isSimulationMode && !isGuideModeActive) || isIncomingCall ? (
-                    <>
-                      <div className="w-20 h-20 mx-auto mb-8 bg-gradient-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                        <Phone className="w-9 h-9 text-white animate-bounce" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-[#10B981] mb-4">통화 연결 중</h2>
-                      <p className="text-base text-[#666666] mb-2">고객의 전화가 연결되고 있습니다</p>
-                      <p className="text-base text-[#666666]">통화 버튼을 클릭하여 응대를 시작하세요</p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-20 h-20 mx-auto mb-8 bg-gradient-to-br from-[#0047AB] to-[#003580] rounded-full flex items-center justify-center shadow-lg animate-wave-flow">
-                        <Phone className="w-9 h-9 text-white" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-[#0047AB] mb-4">상담 대기 중</h2>
-                      <p className="text-base text-[#666666] mb-2">통화 시작 버튼을 클릭하여 상담을 시작하세요</p>
-                      <p className="text-base text-[#666666]">대기 시간이 긴 고객을 우선 응대해주세요</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 인입 키워드 + 상담 안내 멘트 - flex 레이아웃 */}
-          {isCallActive && (
-            <div 
-              className="mb-4 flex gap-4 items-start"
-              style={{
-                animation: 'fadeInSmooth 0.6s ease-out both'
-              }}
-            >
-              {/* 좌측: 인입 키워드 (고정 너비) */}
-              <div id="keyword-area" className="flex-shrink-0" style={{ width: '240px' }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-xs font-bold text-[#333333]">인입 키워드</h3>
-                  {isCallActive && displayedKeywords.length < 3 && (
-                    <span className="text-[10px] text-[#666666] flex items-center gap-1">
-                      <span className="inline-block w-1 h-1 bg-[#0047AB] rounded-full animate-bounce" style={{ animationDelay: '0s' }}></span>
-                      <span className="inline-block w-1 h-1 bg-[#0047AB] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
-                      <span className="inline-block w-1 h-1 bg-[#0047AB] rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
-                      <span>키워드 추출 중</span>
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-1.5 flex-wrap">
-                  {displayedKeywords.slice(0, 3).map((keyword, index) => (
-                    <span 
-                      key={`${keyword}-${currentStep}-${index}`}
-                      className="px-1.5 py-0.5 bg-[#0047AB] text-white rounded-full text-[10px] font-medium"
-                      style={{
-                        animation: `fadeInScale 0.4s ease-out ${index * 0.15}s both`
-                      }}
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* 우측: 상담 안내 멘트 (남은 공간 모두 사용) - 다이렉트 인입 시 표시 안함 */}
-              {!isDirectIncoming && isKeywordDetected && showNextStepCards && (
-                <div 
-                  className="flex-1 bg-[#F0F7FF] border-l-4 border-[#0047AB] rounded-md p-2.5"
-                  style={{
-                    animation: 'fadeInUp 0.6s ease-out 0.3s both'
-                  }}
-                >
-                  <div className="flex items-start gap-2">
-                    <Lightbulb className="w-3.5 h-3.5 text-[#0047AB] flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <h3 className="text-[10px] font-bold text-[#0047AB] mb-1">상담 안내 멘트</h3>
-                      <p className="text-[10px] text-[#333333] leading-relaxed">
-                        {activeScenario && currentStep > 0 
-                          ? (activeScenario.steps[currentStep - 1]?.guidanceScript || guidanceScript)
-                          : guidanceScript}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 현재 상황 칸반보드 - 키워드 감지 후에만 표시 - 다이렉트 인입 시 표시 안함 */}
-          {isCallActive && !isDirectIncoming && (
-            <div 
-              id="current-cards-area"
-              className="mb-5"
-              style={{
-                opacity: isKeywordDetected ? 1 : 0
-              }}
-            >
-              <h2 className="text-sm font-bold text-[#333333] mb-3 flex items-center gap-2">
-                현재 상황 관련 정보
-                {isAnalyzing && (
-                  <span className="text-[10px] text-[#0047AB] font-normal flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 bg-[#0047AB] rounded-full animate-pulse"></div>
-                    분석 중...
-                  </span>
-                )}
-              </h2>
-              {isAnalyzing ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-h-[400px]">
-                {[1, 2].map((i) => (
-                  <div 
-                    key={i}
-                    className="bg-gradient-to-br from-white to-[#F8FBFF] border-2 border-[#0047AB]/20 rounded-lg p-4 animate-pulse h-[180px]"
-                  >
-                    <div className="h-5 bg-[#E8F1FC] rounded w-3/4 mb-3"></div>
-                    <div className="flex gap-1.5 mb-3">
-                      <div className="h-5 bg-[#E8F1FC] rounded w-16"></div>
-                      <div className="h-5 bg-[#E8F1FC] rounded w-20"></div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-3 bg-[#F0F0F0] rounded w-full"></div>
-                      <div className="h-3 bg-[#F0F0F0] rounded w-5/6"></div>
-                      <div className="h-3 bg-[#F0F0F0] rounded w-4/6"></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : !isKeywordDetected ? (
-              <div className="flex items-center justify-center h-[400px] bg-[#F8FBFF] border-2 border-dashed border-[#0047AB]/30 rounded-lg">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-[#E8F1FC] rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Lightbulb className="w-6 h-6 text-[#0047AB]" />
-                  </div>
-                  <p className="text-sm text-[#666666] mb-1">STT 분석을 통해 키워드가 감지되면</p>
-                  <p className="text-sm text-[#666666]">관련 정보가 자동으로 표시됩니다</p>
-                </div>
-              </div>
-            ) : (
-              // ⭐ 수평 슬라이딩 캐러셀: Step별로 좌→우 흐름
-              <div className="relative">
-                {/* Step 인디케이터 */}
-                {activeScenario && (
-                  <div id="next-step-button" className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      {activeScenario.steps.map((_, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleProgressClick(index)}
-                          disabled={index >= maxReachedStep}
-                          className={`h-1 rounded-full transition-all duration-500 ${
-                            index < maxReachedStep 
-                              ? 'bg-[#0047AB] w-8 cursor-pointer hover:bg-[#003580]' 
-                              : 'bg-[#E0E0E0] w-4 cursor-not-allowed'
-                          }`}
-                          title={index < maxReachedStep ? `Step ${index + 1}로 이동` : `Step ${index + 1} (키워드 감지 대기 중)`}
-                        />
-                      ))}
-                      <span className="text-[10px] text-[#666666] ml-2">
-                        Step {currentStep} / {maxReachedStep}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-[#999999] flex items-center gap-1">
-                      <span>← 드래그하여 Step 전환 →</span>
                     </div>
                   </div>
                 )}
                 
-                {/* 슬라이딩 컨테이너 - 전체 Step을 포함, 드래그로 전환 가능 */}
-                <div 
-                  className="relative overflow-hidden cursor-grab active:cursor-grabbing"
-                  onMouseDown={(e) => handleStepDragStart(e, 'current')}
-                  onMouseMove={handleStepDragMove}
-                  onMouseUp={handleStepDragEnd}
-                  onMouseLeave={handleStepDragEnd}
-                >
-                  <div 
-                    className="flex transition-transform duration-700 ease-in-out"
-                    style={{
-                      transform: `translateX(-${(currentStep - 1) * 100}%)`
-                    }}
-                  >
-                    {activeScenario && activeScenario.steps.map((step, stepIndex) => {
-                      const isCurrentStep = stepIndex === currentStep - 1;
-                      const slideDirection = currentStep > previousStep ? 'left' : 'right';
-                      
-                      return (
-                        <div 
-                          key={stepIndex}
-                          className="w-full flex-shrink-0 px-1"
-                        >
-                          {/* 카드 컨테이너 */}
-                          <div className="flex gap-4 overflow-visible">
-                            {step.currentSituationCards.map((card, cardIndex) => {
-                              const cardWithTimestamp = getCardWithTimestamp(card);
-                              // ⭐ Step 1 첫 등장: 위에서 아래로 도미노 (0초, 0.1초)
-                              // ⭐ Step 2+ 전환: 좌우 슬라이드 동시 (delay 없음)
-                              const isFirstStep = currentStep === 1 && stepIndex === 0;
-                              const animationName = isFirstStep
-                                ? 'fadeInUp' 
-                                : `slideInFrom${slideDirection === 'left' ? 'Right' : 'Left'}`;
-                              const delaySeconds = isFirstStep ? cardIndex * 0.1 : 0;
-                              
-                              return (
-                                <InfoCard
-                                  key={card.id}
-                                  card={cardWithTimestamp}
-                                  stepNumber={stepIndex + 1}
-                                  source="ai-recommend"
-                                  onDetailClick={() => handleCardClick(card)}
-                                  className="flex-shrink-0"
-                                  style={{
-                                    width: 'calc(50% - 8px)',
-                                    minWidth: '320px',
-                                    animation: isCurrentStep 
-                                      ? `${animationName} 0.7s ease-out ${delaySeconds}s both` 
-                                      : 'none'
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 다음 단계 칸반보드 - 키워드 감지 후에만 표시 - 다이렉트 인입 시 표시 안함 */}
-          {isCallActive && !isDirectIncoming && isKeywordDetected && showNextStepCards && (
-            <div 
-              id="next-cards-area"
-              className="mb-5"
-            >
-              <h2 className="text-sm font-bold text-[#333333] mb-3 flex items-center justify-between">
-                <span>다음 단계 예상 정보</span>
-                <span className="text-[10px] text-[#999999] flex items-center gap-1">
-                  ← 드래그하여 Step 전환 →
-                </span>
-              </h2>
-              
-              {/* 슬라이딩 컨테이너 - 전체 Step을 포함, 드래그로 전환 가능 */}
-              <div 
-                className="relative overflow-hidden cursor-grab active:cursor-grabbing"
-                onMouseDown={(e) => handleStepDragStart(e, 'next')}
-                onMouseMove={handleStepDragMove}
-                onMouseUp={handleStepDragEnd}
-                onMouseLeave={handleStepDragEnd}
-              >
-                <div 
-                  className="flex transition-transform duration-700 ease-in-out"
-                  style={{
-                    transform: `translateX(-${(currentStep - 1) * 100}%)`
-                  }}
-                >
-                  {activeScenario && activeScenario.steps.map((step, stepIndex) => {
-                    const isCurrentStep = stepIndex === currentStep - 1;
-                    const slideDirection = currentStep > previousStep ? 'left' : 'right';
-                    
-                    return (
-                      <div 
-                        key={stepIndex}
-                        className="w-full flex-shrink-0 px-1"
-                      >
-                        {/* 카드 컨테이너 */}
-                        <div className="flex gap-4 overflow-visible">
-                          {step.nextStepCards.map((card, cardIndex) => {
-                            const cardWithTimestamp = getCardWithTimestamp(card);
-                            // ⭐ Step 1 첫 등장: 현재 카드 이어서 도미노 (0.2초, 0.3초)
-                            // ⭐ Step 2+ 전환: 좌우 슬라이드 동시 (delay 없음)
-                            const isFirstStep = currentStep === 1 && stepIndex === 0;
-                            const currentCardsCount = step.currentSituationCards.length;
-                            const animationName = isFirstStep
-                              ? 'fadeInUp' 
-                              : `slideInFrom${slideDirection === 'left' ? 'Right' : 'Left'}`;
-                            const delaySeconds = isFirstStep ? (currentCardsCount + cardIndex) * 0.1 : 0;
-                            
-                            return (
-                              <InfoCard
-                                key={card.id}
-                                card={cardWithTimestamp}
-                                stepNumber={stepIndex + 1}
-                                source="next-step"
-                                onDetailClick={() => handleCardClick(card)}
-                                className="flex-shrink-0"
-                                style={{
-                                  width: 'calc(50% - 8px)',
-                                  minWidth: '320px',
-                                  animation: isCurrentStep 
-                                    ? `${animationName} 0.7s ease-out ${delaySeconds}s both` 
-                                    : 'none'
-                                }}
-                              />
-                            );
-                          })}
+                {/* 인입 키워드 + 상담 안내 멘트 - flex 레이아웃 */}
+                {isCallActive && (
+                  <div className="mb-4 flex gap-4 items-start">
+                    {/* 좌측: 인입 키워드 (고정 너비) */}
+                    <div id="keyword-area" className="flex-shrink-0" style={{ width: '240px' }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-xs font-bold text-[#333333]">인입 키워드</h3>
+                        {isCallActive && displayedKeywords.length < 3 && (
+                          <span className="text-[10px] text-[#666666] flex items-center gap-1">
+                            <span className="inline-block w-1 h-1 bg-[#0047AB] rounded-full animate-bounce" style={{ animationDelay: '0s' }}></span>
+                            <span className="inline-block w-1 h-1 bg-[#0047AB] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                            <span className="inline-block w-1 h-1 bg-[#0047AB] rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
+                            <span>키워드 추출 중</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {displayedKeywords.slice(0, 3).map((keyword, index) => (
+                          <span 
+                            key={`${keyword}-${currentStep}-${index}`}
+                            className="px-1.5 py-0.5 bg-[#0047AB] text-white rounded-full text-[10px] font-medium"
+                            style={{
+                              animation: `fadeInScale 0.4s ease-out ${index * 0.15}s both`
+                            }}
+                          >
+                            {keyword}
+                          </span>
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
-                </div>
-              </div>
-            </div>
-          )}
+          
+                    {/* 우측: 상담 안내 멘트 (남은 공간 모두 사용) - 다이렉트 인입 시 표시 안함 */}
+                    {!isDirectIncoming && isKeywordDetected && showNextStepCards && (
+                      <div 
+                        className="flex-1 bg-[#F0F7FF] border-l-4 border-[#0047AB] rounded-md p-2.5"
+                        style={{
+                          animation: 'fadeInUp 0.6s ease-out 0.3s both'
+                        }}
+                      >
+                        <div className="flex items-start gap-2">
+                          <Lightbulb className="w-3.5 h-3.5 text-[#0047AB] flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <h3 className="text-[10px] font-bold text-[#0047AB] mb-1">상담 안내 멘트</h3>
+                            <p className="text-[10px] text-[#333333] leading-relaxed">
+                              {activeScenario && currentStep > 0 
+                                ? (activeScenario.steps[currentStep - 1]?.guidanceScript || guidanceScript)
+                                : guidanceScript}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+          
+                {/* 현재 상황 칸반보드 - 키워드 감지 후에만 표시 (RAG 결과 있으면 다이렉트도 표시) */}
+                {isCallActive && (!isDirectIncoming || ragCurrentCards.length > 0) && (
+                  <div 
+                    id="current-cards-area"
+                    className="mb-5"
+                    style={{
+                      opacity: isKeywordDetected ? 1 : 0
+                    }}
+                  >
+                    <h2 className="text-sm font-bold text-[#333333] mb-3 flex items-center gap-2">
+                      현재 상황 관련 정보
+                      {isAnalyzing && (
+                        <span className="text-[10px] text-[#0047AB] font-normal flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 bg-[#0047AB] rounded-full animate-pulse"></div>
+                          분석 중...
+                        </span>
+                      )}
+                    </h2>
+                    
+                    {/* Step 진행 인디케이터 - 키워드 감지 후에만 표시 */}
+                    {isKeywordDetected && activeScenario && (
+                      <div 
+                        id="next-step-button"
+                        className="flex items-center justify-between mb-3"
+                      >
+                        {/* 좌측: 인디케이터 막대들 + Step N/N */}
+                        <div className="flex items-center gap-2">
+                          {/* 가로 막대 인디케이터 - 동적 렌더링 */}
+                          {activeScenario.steps.map((_, index) => (
+                            <button
+                              key={index}
+                              onClick={() => handleProgressClick(index)}
+                              disabled={index >= maxReachedStep}
+                              className={`h-1 rounded-full transition-all duration-500 ${
+                                index < maxReachedStep
+                                  ? 'bg-[#0047AB] w-8 cursor-pointer hover:bg-[#003580]'
+                                  : 'bg-[#E0E0E0] w-4 cursor-not-allowed'
+                              }`}
+                              title={index < maxReachedStep
+                                ? `Step ${index + 1}로 이동`
+                                : `Step ${index + 1} (키워드 감지 대기 중)`
+                              }
+                            />
+                          ))}
+                          
+                          {/* Step N/N 텍스트 - 한 번만 표시 */}
+                          <span className="text-[10px] text-[#666666] ml-2">
+                            Step {currentStep} / {maxReachedStep}
+                          </span>
+                        </div>
+                        
+                        {/* 우측: 드래그 가이드 */}
+                        <span className="text-[10px] text-[#999999]">
+                          ← 드래그하여 Step 전환 →
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* 현재 상황 카드 (시나리오 or RAG 기반) - 드래그 가능 */}
+                    <div
+                      className="grid grid-cols-2 gap-4 select-none"
+                      style={{ cursor: 'grab' }}
+                      onMouseDown={(e) => handleStepDragStart(e, 'current')}
+                      onMouseMove={handleStepDragMove}
+                      onMouseUp={handleStepDragEnd}
+                      onMouseLeave={handleStepDragEnd}
+                    >
+                      {/* 시나리오 기반 카드 (교육 모드) */}
+                      {activeScenario && currentStep > 0 && activeScenario.steps[currentStep - 1]?.currentSituationCards.map((card: ScenarioCard, index: number) => (
+                        <motion.div
+                          key={`${card.id}-${currentStep}`}
+                          initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          transition={{
+                            type: 'spring',
+                            stiffness: 150,
+                            damping: 28,
+                            mass: 0.8,
+                            delay: index * 0.05
+                          }}
+                        >
+                          <InfoCard
+                            card={card}
+                            stepNumber={currentStep}
+                            source="ai-recommend"
+                            onDetailClick={() => handleCardClick(card)}
+                          />
+                        </motion.div>
+                      ))}
+                      {/* ⭐ [v23] RAG 기반 카드 (실시간 모드) */}
+                      {!activeScenario && ragCurrentCards.length > 0 && ragCurrentCards.slice(0, 2).map((ragCard, index) => {
+                        const card = convertRagToScenarioCard(ragCard, index);
+                        return (
+                          <motion.div
+                            key={`rag-current-${card.id}`}
+                            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{
+                              type: 'spring',
+                              stiffness: 150,
+                              damping: 28,
+                              mass: 0.8,
+                              delay: index * 0.05
+                            }}
+                          >
+                            <InfoCard
+                              card={card}
+                              stepNumber={1}
+                              source="ai-recommend"
+                              onDetailClick={() => handleCardClick(card)}
+                            />
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+          
+                {/* 다음 단계 칸반보드 - 키워드 감지 후에만 표시 - 다이렉트 인입 시 표시 안함 */}
+                {isCallActive && (!isDirectIncoming || ragNextCards.length > 0) && isKeywordDetected && showNextStepCards && (
+                  <div 
+                    id="next-cards-area"
+                    className="mb-5"
+                  >
+                    <h2 className="text-sm font-bold text-[#333333] mb-3 flex items-center justify-between">
+                      <span>다음 단계 예상 정보</span>
+                      {/* 우측: 드래그 가이드 */}
+                      {(currentStep > 1 || currentStep < maxReachedStep) && (
+                        <span className="text-[10px] text-[#999999] font-normal flex items-center gap-1">
+                          <span>← 드래그하여 Step 전환 →</span>
+                        </span>
+                      )}
+                    </h2>
+                    
+                    {/* 다음 단계 카드 (시나리오 or RAG 기반) - 드래그 가능 */}
+                    <div
+                      className="grid grid-cols-2 gap-4 select-none"
+                      style={{ cursor: 'grab' }}
+                      onMouseDown={(e) => handleStepDragStart(e, 'next')}
+                      onMouseMove={handleStepDragMove}
+                      onMouseUp={handleStepDragEnd}
+                      onMouseLeave={handleStepDragEnd}
+                    >
+                      {/* 시나리오 기반 카드 (교육 모드) */}
+                      {activeScenario && currentStep > 0 && activeScenario.steps[currentStep - 1]?.nextStepCards.map((card: ScenarioCard, index: number) => (
+                        <motion.div
+                          key={`${card.id}-next-${currentStep}`}
+                          initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          transition={{
+                            type: 'spring',
+                            stiffness: 150,
+                            damping: 28,
+                            mass: 0.8,
+                            delay: index * 0.05
+                          }}
+                        >
+                          <InfoCard
+                            card={card}
+                            stepNumber={currentStep + 1}
+                            source="next-step"
+                            onDetailClick={() => handleCardClick(card)}
+                          />
+                        </motion.div>
+                      ))}
+                      {/* ⭐ [v23] RAG 기반 카드 (실시간 모드) */}
+                      {!activeScenario && ragNextCards.length > 0 && ragNextCards.slice(0, 2).map((ragCard, index) => {
+                        const card = convertRagToScenarioCard(ragCard, index);
+                        return (
+                          <motion.div
+                            key={`rag-next-${card.id}`}
+                            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{
+                              type: 'spring',
+                              stiffness: 150,
+                              damping: 28,
+                              mass: 0.8,
+                              delay: index * 0.05
+                            }}
+                          >
+                            <InfoCard
+                              card={card}
+                              stepNumber={2}
+                              source="next-step"
+                              onDetailClick={() => handleCardClick(card)}
+                            />
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            }
+            searchContent={
+              <SearchLayer
+                searchResults={searchResults}
+                onCardClick={handleCardClick}
+                focusedCardIds={focusedCardIds}
+                className="min-h-[500px]"
+              />
+            }
+          />
         </div>
 
         {/* 우측 열 - 고정 너비 25% (데스크톱: 고정, 모바일: 탭 전환) */}
@@ -2924,6 +3055,7 @@ export default function RealTimeConsultationPage() {
             {/* 검색 입력 영역 */}
             <div className="flex-shrink-0">
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

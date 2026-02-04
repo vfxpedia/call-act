@@ -1,0 +1,58 @@
+# 기존 handleSearch 백업
+
+Original handleSearch (line 1789-1816):
+```typescript
+  const handleSearch = () => {
+    if (!searchQuery.trim()) return;
+
+    const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    
+    // 사용자 질문 추가
+    const userMessage: ChatMessage = {
+      id: Date.now(),
+      type: 'user',
+      text: searchQuery,
+      timestamp: now
+    };
+    
+    setChatMessages(prev => [...prev, userMessage]);
+
+    // AI 답변 시뮬레이션
+    setTimeout(() => {
+      const aiMessage: ChatMessage = {
+        id: Date.now() + 1,
+        type: 'ai',
+        text: getAIResponse(searchQuery),
+        timestamp: now
+      };
+      setChatMessages(prev => [...prev, aiMessage]);
+    }, 500);
+
+    setSearchQuery('');
+  };
+```
+
+New handleSearch:
+```typescript
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    const query = searchQuery.trim();
+    
+    try {
+      const result = await simulateSearch(query);
+      
+      if (isCallActive && result.cards.length > 0) {
+        const historyItem = saveSearchHistory(result);
+        setSearchHistory(getSearchHistory());
+        console.log(`🔍 검색 완료: "${query}" (${result.cards.length}건, ${result.accuracy}% 매칭, ${result.searchTime}ms)`);
+      }
+    } catch (error) {
+      console.error('검색 중 오류 발생:', error);
+    } finally {
+      setIsSearching(false);
+      setSearchQuery('');
+    }
+  };
+```

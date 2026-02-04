@@ -1,0 +1,3 @@
+Line 2420: Change "flex flex-col h-full" to "flex flex-col h-full relative"
+Line 2423: Change "flex-shrink-0 mb-4" to "flex-shrink-0 mb-4 relative z-10"
+Line 2443-2444: Replace the entire block starting with "상담 시작 안내"

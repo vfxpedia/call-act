@@ -2,8 +2,10 @@ import threading
 import queue
 import io
 import asyncio
+import time
 from openai import OpenAI
 from dotenv import load_dotenv
+from app.core.prompt import WHISPER_PROMPT
 
 load_dotenv()
 

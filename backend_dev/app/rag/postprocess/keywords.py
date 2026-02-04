@@ -2,7 +2,8 @@ from typing import Any, Dict, List
 
 import re
 
-from app.rag.vocab.rules import STOPWORDS
+from app.rag.common.text_utils import unique_in_order
+from app.rag.vocab.keyword_dict import STOPWORDS
 
 _TERM_WS_RE = re.compile(r"\s+")
 _TERM_CLEAN_RE = re.compile(r"[^\w가-힣]+")
@@ -56,17 +57,6 @@ ISSUE_FILTER_TOKENS = ("발급", "신청", "재발급", "대상", "서류")
 BENEFIT_FILTER_TOKENS = ("적립", "혜택", "유의", "제외", "포인트", "할인")
 
 
-def _unique_in_order(items: List[str]) -> List[str]:
-    seen = set()
-    out = []
-    for item in items:
-        if item in seen:
-            continue
-        seen.add(item)
-        out.append(item)
-    return out
-
-
 def _strip_particle(term: str) -> str:
     for suffix in _PARTICLE_SUFFIXES:
         if term.endswith(suffix) and len(term) > len(suffix) + 1:
@@ -75,7 +65,9 @@ def _strip_particle(term: str) -> str:
 
 
 def normalize_text(text: str) -> str:
-    return _TERM_WS_RE.sub(" ", text.strip().lower())
+    normalized = text.strip().lower()
+    normalized = _TERM_CLEAN_RE.sub(" ", normalized)
+    return _TERM_WS_RE.sub(" ", normalized).strip()
 
 
 def extract_query_terms(query: str) -> List[str]:
@@ -101,7 +93,7 @@ def extract_query_terms(query: str) -> List[str]:
         if len(term) < 2:
             continue
         terms.append(term)
-    return _unique_in_order(terms)
+    return unique_in_order(terms)
 
 
 def collect_query_keywords(query: str, routing: Dict[str, Any], normalize: bool) -> List[str]:
@@ -120,7 +112,7 @@ def collect_query_keywords(query: str, routing: Dict[str, Any], normalize: bool)
         if not kw.startswith("#"):
             kw = f"#{kw}"
         normalized.append(kw)
-    return _unique_in_order(normalized)
+    return unique_in_order(normalized)
 
 
 def text_has_any(text: str, tokens: tuple[str, ...]) -> bool:

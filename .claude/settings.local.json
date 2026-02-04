@@ -49,7 +49,14 @@
       "Bash(gh api:*)",
       "Bash(git reset:*)",
       "Bash(git rm:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(rsync:*)",
+      "Bash(npm run build:*)",
+      "Bash(git -C \"C:/SKN_19/project/4th/backend\" fetch origin)",
+      "Bash(git -C \"C:/SKN_19/project/4th/backend\" status)",
+      "Bash(git -C \"C:/SKN_19/project/4th/backend\" checkout main)",
+      "Bash(git -C \"C:/SKN_19/project/4th/backend\" pull origin main)",
+      "Bash(git -C \"C:/SKN_19/project/4th/backend\" log --oneline -5)"
     ],
     "deny": [],
     "ask": []
