@@ -3,3 +3,5 @@
 data-preprocessing_dev/data/**/*.json filter=lfs diff=lfs merge=lfs -text
 .back/data/**/*.json filter=lfs diff=lfs merge=lfs -text
 .back/data/**/*.csv filter=lfs diff=lfs merge=lfs -text
+backend_dev/app/db/data/hana/*.json filter=lfs diff=lfs merge=lfs -text
+backend_dev/app/db/data/teddycard/*.json filter=lfs diff=lfs merge=lfs -text

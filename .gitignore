@@ -149,9 +149,9 @@ backend_dev/app/db/scripts/embedding_checkpoint.json
 backend_dev/app/db/scripts/embedding_generation.log
 backend_dev/app/db/scripts/.env
 
-# Large embedding data files (exceed GitHub 100MB limit)
-backend_dev/app/db/data/hana/
-backend_dev/app/db/data/teddycard/
+# Large embedding data files - now tracked via Git LFS
+# backend_dev/app/db/data/hana/
+# backend_dev/app/db/data/teddycard/
 
 # Spyder project settings
 .spyderproject
