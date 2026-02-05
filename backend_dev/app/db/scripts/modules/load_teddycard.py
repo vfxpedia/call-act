@@ -91,6 +91,18 @@ def map_card_product_data(doc: Dict[str, Any]) -> Tuple:
     )
 
 
+def generate_view_count(notice_id: str) -> int:
+    """
+    멱등성 있는 조회수 생성
+
+    Notice ID를 seed로 사용하여 동일한 ID는 항상 동일한 조회수 생성
+    범위: 50 ~ 549
+    """
+    seed_value = hash(notice_id) % (10**9)
+    rng = _rng.Random(seed_value)
+    return rng.randint(50, 549)
+
+
 def map_notice_data(doc: Dict[str, Any]) -> Tuple:
     """notices 데이터 매핑"""
     doc_id = doc.get("id", "")
@@ -99,6 +111,8 @@ def map_notice_data(doc: Dict[str, Any]) -> Tuple:
     category = doc.get("category", "system")
     priority = doc.get("priority", "normal")
     is_pinned = doc.get("is_pinned", False)
+    # view_count: JSON에 있으면 사용, 없으면 ID 기반으로 생성 (멱등성 보장)
+    view_count = doc.get("view_count") or generate_view_count(doc_id)
     start_date = doc.get("start_date")
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -122,7 +136,7 @@ def map_notice_data(doc: Dict[str, Any]) -> Tuple:
                                        datetime.min.time().replace(hour=_rng.randint(9, 17),
                                                                     minute=_rng.randint(0, 59)))
     return (
-        doc_id, title, content, category, priority, is_pinned,
+        doc_id, title, content, category, priority, is_pinned, view_count,
         start_date, end_date, status, created_by, keywords,
         embedding_str, PsycopgJson(metadata) if metadata else None,
         created_at
@@ -240,11 +254,11 @@ def load_teddycard_data(conn: psycopg2_connection):
 
     insert_notice = """
         INSERT INTO notices (
-            id, title, content, category, priority, is_pinned,
+            id, title, content, category, priority, is_pinned, view_count,
             start_date, end_date, status, created_by, keywords, embedding, metadata,
             created_at
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             COALESCE(%s, NOW())
         )
         ON CONFLICT (id) DO UPDATE SET
@@ -253,6 +267,7 @@ def load_teddycard_data(conn: psycopg2_connection):
             category = EXCLUDED.category,
             priority = EXCLUDED.priority,
             is_pinned = EXCLUDED.is_pinned,
+            view_count = COALESCE(EXCLUDED.view_count, notices.view_count),
             start_date = EXCLUDED.start_date,
             end_date = EXCLUDED.end_date,
             status = EXCLUDED.status,

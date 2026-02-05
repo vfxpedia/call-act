@@ -101,9 +101,9 @@ def print_checklist(skip_schema: bool, skip_keywords: bool, skip_teddycard: bool
     # 필수 파일 확인
     files_ok, missing_files = check_required_files()
     if files_ok:
-        print("✅ 필수 SQL 파일: 모두 존재")
+        print("[OK] 필수 SQL 파일: 모두 존재")
     else:
-        print("❌ 필수 SQL 파일 누락:")
+        print("[FAIL] 필수 SQL 파일 누락:")
         for file in missing_files:
             print(f"   - {file}")
         return False
@@ -112,7 +112,7 @@ def print_checklist(skip_schema: bool, skip_keywords: bool, skip_teddycard: bool
     if not skip_employees or not skip_hana or not skip_keywords or not skip_teddycard:
         data_ok, data_files = check_data_files()
         if data_ok:
-            print("✅ 데이터 파일: 모두 존재")
+            print("[OK] 데이터 파일: 모두 존재")
             if not skip_employees:
                 print(f"   - Employees: {data_files['employees']}")
                 print(f"   - Customers: {data_files['customers']}")
@@ -126,7 +126,7 @@ def print_checklist(skip_schema: bool, skip_keywords: bool, skip_teddycard: bool
             if not skip_keywords:
                 print(f"   - Keywords Dict: {data_files['keywords_dict']}")
         else:
-            print("⚠️ 데이터 파일 일부 누락:")
+            print("[WARN] 데이터 파일 일부 누락:")
             if not skip_employees and not data_files['employees']:
                 print("   - employeesData.json")
             if not skip_employees and not data_files['customers']:
@@ -146,23 +146,23 @@ def print_checklist(skip_schema: bool, skip_keywords: bool, skip_teddycard: bool
             if not skip_keywords and not data_files['keywords_dict']:
                 print("   - keywords_dict_*.json")
             if not skip_employees and not data_files['employees']:
-                print("   ⚠️ 상담사 데이터 파일이 없으면 상담사 적재를 건너뜁니다.")
+                print("   [WARN] 상담사 데이터 파일이 없으면 상담사 적재를 건너뜁니다.")
             if not skip_employees and not data_files['customers']:
-                print("   ⚠️ 고객 데이터 파일이 없으면 고객 적재를 건너뜁니다.")
+                print("   [WARN] 고객 데이터 파일이 없으면 고객 적재를 건너뜁니다.")
             if not skip_hana and not data_files['hana_rdb']:
-                print("   ⚠️ 하나카드 데이터 파일이 없으면 하나카드 적재를 건너뜁니다.")
+                print("   [WARN] 하나카드 데이터 파일이 없으면 하나카드 적재를 건너뜁니다.")
             if not skip_keywords and not data_files['keywords_dict']:
-                print("   ⚠️ 키워드 사전 파일이 없으면 키워드 적재를 건너뜁니다.")
+                print("   [WARN] 키워드 사전 파일이 없으면 키워드 적재를 건너뜁니다.")
             if not skip_teddycard and not all([data_files['service_guides'], data_files['card_products'], data_files['notices']]):
-                print("   ⚠️ 테디카드 데이터 파일이 없으면 테디카드 적재를 건너뜁니다.")
+                print("   [WARN] 테디카드 데이터 파일이 없으면 테디카드 적재를 건너뜁니다.")
 
     # 환경 변수 확인
     env_vars_ok = all([DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME])
     if env_vars_ok:
-        print("✅ 환경 변수: 모두 설정됨")
+        print("[OK] 환경 변수: 모두 설정됨")
         print(f"   - DB: {DB_HOST}:{DB_PORT}/{DB_NAME}")
     else:
-        print("❌ 환경 변수: 일부 누락")
+        print("[FAIL] 환경 변수: 일부 누락")
         return False
 
     print("=" * 60)
@@ -210,12 +210,12 @@ def verify_load(conn: psycopg2_connection):
                 missing_tables.append(table)
         except Exception as e:
             missing_tables.append(table)
-            print(f"  ❌ {table}: 확인 실패 - {e}")
+            print(f"  [FAIL] {table}: 확인 실패 - {e}")
 
     if missing_tables:
-        print(f"  ⚠️ 누락된 테이블: {', '.join(missing_tables)}")
+        print(f"  [WARN] 누락된 테이블: {', '.join(missing_tables)}")
     else:
-        print(f"  ✅ 모든 테이블 존재: {len(existing_tables)}개")
+        print(f"  [OK] 모든 테이블 존재: {len(existing_tables)}개")
 
     # 2. 데이터 개수 확인 및 검증
     print("\n[2/4] 데이터 개수 확인 및 검증")
@@ -251,7 +251,7 @@ def verify_load(conn: psycopg2_connection):
             if count > 0:
                 tables_with_data.append((table, count))
                 if table == 'employees' and count < expected_min:
-                    print(f"  ⚠️ {table}: {count:,}건 (예상 최소: {expected_min}건) - 기본 상담사만 있을 수 있음")
+                    print(f"  [WARN] {table}: {count:,}건 (예상 최소: {expected_min}건) - 기본 상담사만 있을 수 있음")
                     tables_with_warnings.append((table, count, expected_min))
 
                     cursor.execute("""
@@ -262,17 +262,17 @@ def verify_load(conn: psycopg2_connection):
                     """)
                     default_count = cursor.fetchone()[0]
                     if default_count == count:
-                        print(f"    ⚠️ 경고: 기본 상담사만 있습니다. employeesData.json 데이터를 적재해야 합니다.")
+                        print(f"    [WARN] 경고: 기본 상담사만 있습니다. employeesData.json 데이터를 적재해야 합니다.")
                 elif count < expected_min:
-                    print(f"  ⚠️ {table}: {count:,}건 (예상 최소: {expected_min}건) - 데이터가 부족할 수 있음")
+                    print(f"  [WARN] {table}: {count:,}건 (예상 최소: {expected_min}건) - 데이터가 부족할 수 있음")
                     tables_with_warnings.append((table, count, expected_min))
                 else:
-                    print(f"  ✅ {table}: {count:,}건")
+                    print(f"  [OK] {table}: {count:,}건")
             else:
                 tables_without_data.append(table)
-                print(f"  ⚠️ {table}: 0건 (데이터 없음)")
+                print(f"  [WARN] {table}: 0건 (데이터 없음)")
         except Exception as e:
-            print(f"  ❌ {table}: 오류 - {e}")
+            print(f"  [FAIL] {table}: 오류 - {e}")
 
     # 3. 스키마 확인 (pgvector 확장, 주요 인덱스)
     print("\n[3/4] 스키마 확인")
@@ -281,11 +281,11 @@ def verify_load(conn: psycopg2_connection):
     try:
         cursor.execute("SELECT extname FROM pg_extension WHERE extname = 'vector'")
         if cursor.fetchone():
-            print("  ✅ pgvector 확장: 설치됨")
+            print("  [OK] pgvector 확장: 설치됨")
         else:
-            print("  ❌ pgvector 확장: 설치되지 않음")
+            print("  [FAIL] pgvector 확장: 설치되지 않음")
     except Exception as e:
-        print(f"  ❌ pgvector 확장 확인 실패: {e}")
+        print(f"  [FAIL] pgvector 확장 확인 실패: {e}")
 
     # 주요 인덱스 확인 (임베딩 인덱스)
     vector_indexes = [
@@ -303,11 +303,11 @@ def verify_load(conn: psycopg2_connection):
                     WHERE schemaname = 'public' AND indexname = %s
                 """, (index_name,))
                 if cursor.fetchone():
-                    print(f"  ✅ {index_name}: 존재")
+                    print(f"  [OK] {index_name}: 존재")
                 else:
-                    print(f"  ⚠️ {index_name}: 없음 (성능 저하 가능)")
+                    print(f"  [WARN] {index_name}: 없음 (성능 저하 가능)")
             except Exception as e:
-                print(f"  ❌ {index_name} 확인 실패: {e}")
+                print(f"  [FAIL] {index_name} 확인 실패: {e}")
 
     # 4. 상담사별/대분류별 분포 확인
     print("\n[4/4] 상담사별/대분류별 분포 확인")
@@ -348,11 +348,11 @@ def verify_load(conn: psycopg2_connection):
 
                 # 분산 경고
                 if avg_count > 0 and std_dev / avg_count > 0.5:
-                    print(f"    ⚠️ 경고: 상담사별 배분이 불균등합니다. (변동계수: {std_dev/avg_count:.2f})")
+                    print(f"    [WARN] 경고: 상담사별 배분이 불균등합니다. (변동계수: {std_dev/avg_count:.2f})")
                 else:
-                    print(f"    ✅ 상담사별 배분이 비교적 균등합니다. (변동계수: {std_dev/avg_count:.2f})")
+                    print(f"    [OK] 상담사별 배분이 비교적 균등합니다. (변동계수: {std_dev/avg_count:.2f})")
             else:
-                print("  ⚠️ 상담사별 상담 데이터가 없습니다.")
+                print("  [WARN] 상담사별 상담 데이터가 없습니다.")
 
             # 대분류별 상담 건수 확인
             cursor.execute("""
@@ -405,15 +405,15 @@ def verify_load(conn: psycopg2_connection):
 
                             print(f"    - {main_cat}: {len(agent_ids)}명 담당 (예상: {expected_pool_size}명)")
                             if abs(len(agent_ids) - expected_pool_size) > 2:
-                                print(f"      ⚠️ 경고: 예상 풀 크기와 다릅니다.")
+                                print(f"      [WARN] 경고: 예상 풀 크기와 다릅니다.")
                             else:
-                                print(f"      ✅ 풀 크기가 예상과 일치합니다.")
+                                print(f"      [OK] 풀 크기가 예상과 일치합니다.")
         except Exception as e:
-            print(f"  ❌ 상담사별/대분류별 분포 확인 실패: {e}")
+            print(f"  [FAIL] 상담사별/대분류별 분포 확인 실패: {e}")
             import traceback
             traceback.print_exc()
     else:
-        print("  ⚠️ consultations 테이블이 없어 분포를 확인할 수 없습니다.")
+        print("  [WARN] consultations 테이블이 없어 분포를 확인할 수 없습니다.")
 
     # 최종 요약
     print("\n" + "=" * 60)
@@ -422,21 +422,21 @@ def verify_load(conn: psycopg2_connection):
     print(f"테이블: {len(existing_tables)}/{len(expected_tables)}개 존재")
     print(f"데이터 적재된 테이블: {len(tables_with_data)}개")
     if tables_without_data:
-        print(f"⚠️ 데이터 없는 테이블: {', '.join(tables_without_data)}")
+        print(f"[WARN] 데이터 없는 테이블: {', '.join(tables_without_data)}")
     if tables_with_warnings:
-        print(f"⚠️ 데이터 부족한 테이블:")
+        print(f"[WARN] 데이터 부족한 테이블:")
         for table, count, expected_min in tables_with_warnings:
             print(f"   - {table}: {count}건 (예상 최소: {expected_min}건)")
 
     if missing_tables:
-        print(f"\n⚠️ 주의: 누락된 테이블이 있습니다. 스키마 생성이 완료되지 않았을 수 있습니다.")
+        print(f"\n[WARN] 주의: 누락된 테이블이 있습니다. 스키마 생성이 완료되지 않았을 수 있습니다.")
 
     # 검증 통과 여부
     verification_passed = (len(missing_tables) == 0 and len(tables_without_data) == 0 and len(tables_with_warnings) == 0)
     if verification_passed:
-        print(f"\n✅ 검증 통과: 모든 테이블과 데이터가 정상적으로 적재되었습니다.")
+        print(f"\n[OK] 검증 통과: 모든 테이블과 데이터가 정상적으로 적재되었습니다.")
     else:
-        print(f"\n⚠️ 검증 경고: 일부 테이블에 데이터가 부족하거나 누락되었습니다. 위 내용을 확인해주세요.")
+        print(f"\n[WARN] 검증 경고: 일부 테이블에 데이터가 부족하거나 누락되었습니다. 위 내용을 확인해주세요.")
 
     cursor.close()
     return verification_passed

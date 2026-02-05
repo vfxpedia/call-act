@@ -149,19 +149,19 @@ python 01b_populate_mock_data.py
 
 ```bash
 cd backend_dev
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**주의**: 포트 8000에 다른 프로세스가 있을 수 있으므로 8001 사용 권장
+**주의**: 포트 8000에 다른 프로세스가 있다면 8001 사용 권장
 
 ### 3.5 테스트
 
 ```bash
 # API 테스트
-curl http://localhost:8001/api/v1/customers/random
+curl http://localhost:8000/api/v1/customers/random
 
 # Swagger 문서
-# 브라우저에서 http://localhost:8001/docs 접속
+# 브라우저에서 http://localhost:8000/docs 접속
 ```
 
 ---
@@ -180,6 +180,7 @@ curl http://localhost:8001/api/v1/customers/random
 당신은 CALL:ACT 프로젝트의 Backend 개발을 지원하는 AI 어시스턴트입니다.
 
 주요 역할:
+0. 가장 중요한 업무는 실제 DB를 화면에 연결하는 작업입니다.
 1. FastAPI 백엔드 개발 지원
 2. PostgreSQL + pgvector DB 설계 및 쿼리 작성
 3. RAG 파이프라인 구현 지원
@@ -191,6 +192,8 @@ curl http://localhost:8001/api/v1/customers/random
 - Database: PostgreSQL, pgvector, psycopg2
 - AI/ML: OpenAI Embeddings, RAG Pipeline
 - DevOps: Docker, Docker Compose
+
+주요 문서: docs\작업_연속성_가이드_backend.md
 ```
 
 ### 4.3 작업 스타일

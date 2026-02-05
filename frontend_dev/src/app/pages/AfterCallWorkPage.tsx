@@ -112,111 +112,269 @@ export default function AfterCallWorkPage() {
         // ⭐ 페이지 진입 안정화 시간 (500ms 대기)
         console.log('⏳ [ACW 로드] 페이지 안정화 대기 중...');
         await delay(500);
-        
-        // 현재 시나리오 카테고리 가져오기
-        const category = localStorage.getItem('currentScenarioCategory');
-        console.log('🎬 [ACW 로드] 시나리오 카테고리:', category);
-        
-        if (!category) {
-          console.warn('⚠️ [ACW 로드] 카테고리 없음 - 기본값 유지');
-          return;
-        }
-        
-        // 카테고리별 ACW 데이터 조회
-        const acwData = getACWDataByCategory(category);
-        
-        if (!acwData) {
-          console.warn(`⚠️ [ACW 로드] "${category}" 시나리오 데이터 없음`);
-          return;
-        }
-        
-        console.log('✅ [ACW 로드] 데이터 발견:', acwData);
-        
-        // 1. 상담 전문 채팅 데이터 즉시 로드 (STT 데이터 우선)
-        const savedTranscript = localStorage.getItem('consultationTranscript');
-        if (savedTranscript) {
+
+        // ⭐ [v24] 먼저 실제 LLM API 결과 확인 (llmApiResult)
+        const llmResultStr = localStorage.getItem('llmApiResult');
+        let aiAnalysisData: {
+          title: string;
+          status: string;
+          category: string;
+          subcategory: string;
+          aiSummary: string;
+          followUpTasks: string;
+          handoffDepartment: string;
+          handoffNotes: string;
+          handledCategories?: string[];
+          evaluation?: unknown;
+        } | null = null;
+
+        if (llmResultStr) {
           try {
-            const transcript = JSON.parse(savedTranscript);
-            setCallTranscript(transcript);
-            console.log('✅ [ACW 로드] 실제 STT 데이터 사용:', transcript.length, '개 메시지');
+            const llmResult = JSON.parse(llmResultStr);
+            console.log('🤖 [ACW 로드] 실제 LLM API 결과 발견:', llmResult);
+
+            // LLM API 결과를 사용
+            aiAnalysisData = {
+              title: llmResult.title || '상담 내역',
+              status: llmResult.status || '완료',
+              category: llmResult.category || '기타',
+              subcategory: llmResult.subcategory || '기타',
+              aiSummary: llmResult.aiSummary || '',
+              followUpTasks: llmResult.followUpTasks || '',
+              handoffDepartment: llmResult.handoffDepartment || '없음',
+              handoffNotes: llmResult.handoffNotes || '',
+              handledCategories: llmResult.handledCategories || [],
+              evaluation: llmResult.evaluation || null
+            };
+
+            // ⭐ evaluation 데이터가 있으면 localStorage에 저장 (저장 시 사용)
+            if (llmResult.evaluation) {
+              localStorage.setItem('llmEvaluation', JSON.stringify(llmResult.evaluation));
+              console.log('📊 [ACW 로드] LLM 평가 데이터 저장:', llmResult.evaluation);
+            }
+
+            // ⭐ [v24] LLM 응답의 script 필드(화자 분리된 전문)가 있으면 우선 사용
+            if (llmResult.script && Array.isArray(llmResult.script) && llmResult.script.length > 0) {
+              const diarizedTranscript = llmResult.script.map((item: { speaker: string; message: string }, index: number) => ({
+                speaker: item.speaker,
+                message: item.message,
+                timestamp: `00:${String(index * 10).padStart(2, '0')}`  // 임시 타임스탬프
+              }));
+              setCallTranscript(diarizedTranscript);
+              // ⭐ LLM 화자 분리 전문 사용 플래그 설정 (STT 덮어쓰기 방지)
+              localStorage.setItem('useLLMScript', 'true');
+              console.log('🎤 [ACW 로드] LLM 화자 분리 전문 사용:', diarizedTranscript.length, '개 발화');
+            }
           } catch (error) {
-            console.error('❌ [ACW 로드] STT 데이터 파싱 실패, ACW 데이터 사용');
-            if (acwData.transcript && acwData.transcript.length > 0) {
+            console.error('❌ [ACW 로드] LLM 결과 파싱 실패:', error);
+          }
+        }
+
+        // LLM 결과가 없으면 Mock 데이터 폴백
+        if (!aiAnalysisData) {
+          const category = localStorage.getItem('currentScenarioCategory');
+          console.log('🎬 [ACW 로드] 시나리오 카테고리:', category);
+
+          if (!category) {
+            console.warn('⚠️ [ACW 로드] 카테고리 없음 - 기본값 유지');
+            return;
+          }
+
+          // 카테고리별 ACW 데이터 조회 (Mock)
+          const acwData = getACWDataByCategory(category);
+
+          if (!acwData) {
+            console.warn(`⚠️ [ACW 로드] "${category}" 시나리오 데이터 없음`);
+            return;
+          }
+
+          console.log('✅ [ACW 로드] Mock 데이터 사용:', acwData);
+
+          aiAnalysisData = {
+            title: acwData.aiAnalysis.title,
+            status: '완료',
+            category: acwData.aiAnalysis.inboundCategory,
+            subcategory: acwData.aiAnalysis.subcategory,
+            aiSummary: acwData.aiAnalysis.summary,
+            followUpTasks: acwData.aiAnalysis.followUpTasks || '',
+            handoffDepartment: acwData.aiAnalysis.handoffDepartment || '없음',
+            handoffNotes: acwData.aiAnalysis.handoffNotes || '',
+            handledCategories: acwData.processingTimeline?.map((t: { step: string }) => t.step) || []
+          };
+
+          // Mock 데이터의 처리 타임라인 설정
+          if (acwData.processingTimeline) {
+            setProcessingTimeline(acwData.processingTimeline);
+          }
+
+          // Mock 데이터의 transcript 설정
+          if (acwData.transcript && acwData.transcript.length > 0) {
+            const savedTranscript = localStorage.getItem('consultationTranscript');
+            if (!savedTranscript) {
               setCallTranscript(acwData.transcript);
+              console.log('✅ [ACW 로드] Mock transcript 사용:', acwData.transcript.length, '개 메시지');
             }
           }
-        } else if (acwData.transcript && acwData.transcript.length > 0) {
-          setCallTranscript(acwData.transcript);
-          console.log('✅ [ACW 로드] ACW Mock 데이터 사용:', acwData.transcript.length, '개 메시지');
         }
-        
+
+        // 1. 상담 전문 채팅 데이터 즉시 로드 (LLM 화자 분리 전문이 없을 때만)
+        const useLLMScript = localStorage.getItem('useLLMScript') === 'true';
+        if (!useLLMScript) {
+          const savedTranscript = localStorage.getItem('consultationTranscript');
+          if (savedTranscript) {
+            try {
+              const transcript = JSON.parse(savedTranscript);
+              setCallTranscript(transcript);
+              console.log('✅ [ACW 로드] 실제 STT 데이터 사용:', transcript.length, '개 메시지');
+            } catch (error) {
+              console.error('❌ [ACW 로드] STT 데이터 파싱 실패');
+            }
+          }
+        } else {
+          console.log('⏭️ [ACW 로드] LLM 화자 분리 전문 사용 중 - STT 데이터 건너뜀');
+          localStorage.removeItem('useLLMScript'); // 플래그 정리
+        }
+
         // 2. Select 필드 즉시 로드 (애니메이션 불가능)
         setFormData(prev => ({
           ...prev,
-          category: acwData.aiAnalysis.inboundCategory,
-          subcategory: acwData.aiAnalysis.subcategory,
-          handoffDepartment: acwData.aiAnalysis.handoffDepartment || '없음',
+          category: aiAnalysisData!.category,
+          subcategory: aiAnalysisData!.subcategory,
+          handoffDepartment: aiAnalysisData!.handoffDepartment || '없음',
         }));
-        
-        console.log('✅ [ACW 로드] 대분류:', acwData.aiAnalysis.inboundCategory);
-        console.log('✅ [ACW 로드] 중분류:', acwData.aiAnalysis.subcategory);
-        
+
+        console.log('✅ [ACW 로드] 대분류:', aiAnalysisData.category);
+        console.log('✅ [ACW 로드] 중분류:', aiAnalysisData.subcategory);
+
         // 3. 타이핑 애니메이션 순차 진행
         await delay(300);
-        
+
         // 3-1. 제목 타이핑 (빠르게: 5ms)
         await typewriterEffect(
-          acwData.aiAnalysis.title,
+          aiAnalysisData.title,
           (partial) => setFormData(prev => ({ ...prev, title: partial })),
           5
         );
-        
+
         await delay(200);
-        
+
         // 3-2. AI 요약본 타이핑 (중간 속도: 8ms)
         await typewriterEffect(
-          acwData.aiAnalysis.summary,
+          aiAnalysisData.aiSummary,
           (partial) => setAiSummary(partial),
           8
         );
-        
+
         await delay(200);
-        
+
         // 3-3. 추후 할 일 타이핑 (빠르게: 5ms)
-        if (acwData.aiAnalysis.followUpTasks) {
+        if (aiAnalysisData.followUpTasks) {
           await typewriterEffect(
-            acwData.aiAnalysis.followUpTasks,
+            aiAnalysisData.followUpTasks,
             (partial) => setFormData(prev => ({ ...prev, followUpTasks: partial })),
             5
           );
         }
-        
+
         await delay(200);
-        
+
         // 3-4. 이관 부서 전달 사항 타이핑 (빠르게: 5ms)
-        if (acwData.aiAnalysis.handoffNotes) {
+        if (aiAnalysisData.handoffNotes) {
           await typewriterEffect(
-            acwData.aiAnalysis.handoffNotes,
+            aiAnalysisData.handoffNotes,
             (partial) => setFormData(prev => ({ ...prev, handoffNotes: partial })),
             5
           );
         }
-        
+
         await delay(300);
-        
-        // 4. 🎯 마지막 화룡점정: 처리 내역 타임라인 (애니메이션 효과)
-        setProcessingTimeline(acwData.processingTimeline);
-        
+
+        // 4. 🎯 LLM 결과에서 처리 내역 타임라인 생성 (handledCategories 사용)
+        if (aiAnalysisData.handledCategories && aiAnalysisData.handledCategories.length > 0) {
+          const generatedTimeline = aiAnalysisData.handledCategories.map((step: string, index: number) => ({
+            time: new Date(Date.now() - (aiAnalysisData!.handledCategories!.length - index) * 30000).toISOString().slice(11, 19),
+            action: step,
+            categoryRaw: null
+          }));
+          setProcessingTimeline(generatedTimeline);
+          console.log('✅ [ACW 로드] LLM 기반 처리 타임라인 생성:', generatedTimeline);
+        }
+
         console.log('✅ [ACW 로드] 모든 타이핑 애니메이션 완료');
-        
+
       } catch (error) {
         console.error('❌ [ACW 로드] 오류:', error);
       }
     };
-    
+
     loadACWData();
   }, []); // 페이지 로드 시 한 번만 실행
-  
+
+  // ⭐ [v24] LLM 분석 완료 이벤트 리스너 (API 응답이 나중에 올 경우 대비)
+  useEffect(() => {
+    const handleLLMComplete = (event: CustomEvent) => {
+      console.log('🎉 [ACW] llmAnalysisComplete 이벤트 수신:', event.detail);
+      const llmData = event.detail;
+
+      if (llmData) {
+        // 폼 데이터 업데이트
+        setFormData(prev => ({
+          ...prev,
+          title: llmData.title || prev.title,
+          status: llmData.status || prev.status,
+          category: llmData.category || prev.category,
+          subcategory: llmData.subcategory || prev.subcategory,
+          followUpTasks: llmData.followUpTasks || prev.followUpTasks,
+          handoffDepartment: llmData.handoffDepartment || prev.handoffDepartment,
+          handoffNotes: llmData.handoffNotes || prev.handoffNotes,
+        }));
+
+        // AI 요약 업데이트
+        if (llmData.aiSummary) {
+          setAiSummary(llmData.aiSummary);
+        }
+
+        // 처리 타임라인 업데이트 (기존 형식에 맞춤: time, action, categoryRaw)
+        if (llmData.handledCategories && Array.isArray(llmData.handledCategories)) {
+          const generatedTimeline = llmData.handledCategories.map((step: string, index: number) => ({
+            time: `00:${String((index + 1) * 30).padStart(2, '0')}`,
+            action: step,
+            categoryRaw: null
+          }));
+          setProcessingTimeline(generatedTimeline);
+        }
+
+        // 화자분리된 상담 전문 업데이트
+        if (llmData.script && Array.isArray(llmData.script) && llmData.script.length > 0) {
+          const diarizedTranscript = llmData.script.map((item: { speaker: string; message: string }, index: number) => ({
+            speaker: item.speaker,
+            message: item.message,
+            timestamp: `00:${String(index * 10).padStart(2, '0')}`
+          }));
+          setCallTranscript(diarizedTranscript);
+          localStorage.setItem('useLLMScript', 'true');
+          console.log('🎤 [ACW 이벤트] LLM 화자 분리 전문 적용:', diarizedTranscript.length, '개 발화');
+        }
+
+        // 평가 데이터 저장
+        if (llmData.evaluation) {
+          localStorage.setItem('llmEvaluation', JSON.stringify(llmData.evaluation));
+          console.log('📊 [ACW 이벤트] LLM 평가 데이터 저장:', llmData.evaluation);
+        }
+
+        // LLM 로딩 완료
+        setIsLlmLoading(false);
+        console.log('✅ [ACW 이벤트] LLM 데이터 적용 완료');
+      }
+    };
+
+    window.addEventListener('llmAnalysisComplete', handleLLMComplete as EventListener);
+
+    return () => {
+      window.removeEventListener('llmAnalysisComplete', handleLLMComplete as EventListener);
+    };
+  }, []);
+
   const [formData, setFormData] = useState({
     title: '',
     status: '진행중',
@@ -599,6 +757,12 @@ export default function AfterCallWorkPage() {
       referencedDocumentIds: referencedDocuments.map(doc => doc.documentId), // 문서 ID만 추출
       // ⭐ Phase 8-2: 후처리 시간 추가 (초 단위)
       acwTimeSeconds: acwTimeInSeconds,
+      // ⭐ 처리 타임라인 추가 (categoryRaw → category 변환)
+      processingTimeline: processingTimeline.map(item => ({
+        time: item.time,
+        action: item.action,
+        category: item.categoryRaw ? `${item.categoryRaw.mainCategory} > ${item.categoryRaw.subCategory}` : null
+      })),
     };
 
     try {
@@ -616,7 +780,7 @@ export default function AfterCallWorkPage() {
       // ⭐ localStorage 완전히 clear (순서 중요!)
       // 1. 먼저 pendingConsultation 삭제 (자동 저장 useEffect가 다시 실행되지 않도록)
       localStorage.removeItem('pendingConsultation');
-      
+
       // 2. 통화 관련 상태 삭제
       localStorage.removeItem('activeCallState');
       localStorage.removeItem('currentConsultationMemo');
@@ -624,9 +788,17 @@ export default function AfterCallWorkPage() {
       localStorage.removeItem('referencedDocuments');
       localStorage.removeItem('currentScenarioCategory');
       localStorage.removeItem('clickedDocuments');
-      
-      // 3. 마지막으로 pendingACW 삭제
+
+      // 3. ⭐ LLM 관련 데이터 삭제 (상담 전문, 평가, 화자 분리)
+      localStorage.removeItem('llmEvaluation');
+      localStorage.removeItem('llmApiResult');
+      localStorage.removeItem('consultationTranscript');
+      localStorage.removeItem('useLLMScript');
+
+      // 4. 마지막으로 pendingACW 삭제
       localStorage.removeItem('pendingACW');
+
+      console.log('🧹 [후처리 완료] localStorage 전체 초기화 완료');
 
       // 저장 완료 후 페이지 이동
       setIsSaving(false);

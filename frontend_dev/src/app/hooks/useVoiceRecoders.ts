@@ -31,13 +31,15 @@ export interface RAGResponse {
 }
 
 export interface WebSocketMessage {
-  type: 'rag' | 'session';
+  type: 'rag' | 'session' | 'stt';
   data: RAGResponse | string;
+  text?: string;  // STT 결과 텍스트
 }
 
 interface UseVoiceRecorderOptions {
   onRagResult?: (data: RAGResponse) => void;
   onSessionId?: (sessionId: string) => void;
+  onSttResult?: (text: string) => void;  // ⭐ [v24] STT 결과 콜백
 }
 
 export const useVoiceRecorder = (options?: UseVoiceRecorderOptions) => {
@@ -189,6 +191,12 @@ export const useVoiceRecorder = (options?: UseVoiceRecorderOptions) => {
             setSessionId(message);
             optionsRef.current?.onSessionId?.(message);
             return;
+          }
+
+          // ⭐ [v24] STT 결과 메시지
+          if (message.type === 'stt' && message.text) {
+            console.log('[WebSocket] STT 결과 수신:', message.text);
+            optionsRef.current?.onSttResult?.(message.text);
           }
 
           // RAG 결과 메시지

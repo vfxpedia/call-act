@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import asyncio
 import os
 import re
 import time
 
-## Removed broken import: generate_detail_cards, build_rule_cards (not found in card_generator.py)
+from app.llm.card_generator import generate_detail_cards
 from app.rag.cache.card_cache import (
     CARD_CACHE_ENABLED,
     build_card_cache_key,
@@ -79,6 +79,48 @@ def _strip_noisy_disclaimer_in_cards(cards: List[Dict[str, Any]]) -> List[Dict[s
         updated["content"] = "\n".join(kept).strip()
         out.append(updated)
     return out
+
+
+def _truncate(text: str, limit: int) -> str:
+    """텍스트를 지정된 길이로 자름"""
+    if not text:
+        return ""
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "..."
+
+
+def build_rule_cards(query: str, docs: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str]:
+    """
+    LLM 없이 문서 기반으로 기본 카드를 생성하는 fallback 함수.
+    llm_docs가 비어있을 때 호출됨.
+    """
+    if not docs:
+        return [], ""
+
+    cards: List[Dict[str, Any]] = []
+    for doc in docs:
+        content = doc.get("content") or ""
+        meta = doc.get("metadata") or {}
+        card_id = meta.get("id") or doc.get("id") or ""
+
+        card = {
+            "id": str(card_id),
+            "title": doc.get("title") or meta.get("title") or "",
+            "keywords": [],
+            "content": _truncate(content, 140),
+            "systemPath": "",
+            "requiredChecks": [],
+            "exceptions": [],
+            "regulation": "",
+            "detailContent": content,
+            "time": "",
+            "note": "",
+            "relevanceScore": float(doc.get("score") or 0.0),
+        }
+        cards.append(card)
+
+    return cards, ""
 
 
 def _filter_card_product_docs(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

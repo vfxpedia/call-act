@@ -66,11 +66,122 @@ CREATE INDEX IF NOT EXISTS idx_customers_grade ON customers(grade);
 CREATE INDEX IF NOT EXISTS idx_customers_card_type ON customers(card_type);
 CREATE INDEX IF NOT EXISTS idx_customers_total_consultations ON customers(total_consultations);
 
--- GIN 인덱스 for JSONB and TEXT[]
-CREATE INDEX IF NOT EXISTS idx_customers_personality_tags ON customers USING GIN(personality_tags);
-CREATE INDEX IF NOT EXISTS idx_customers_communication_style ON customers USING GIN(communication_style);
+-- GIN 인덱스는 컬럼 존재 확인 후 생성 (아래 DO 블록에서 처리)
 
--- 4. 테이블 및 컬럼 코멘트
+-- 4. 기존 테이블 업그레이드 (필드 추가) - COMMENT 전에 실행해야 함
+-- 기존 customers 테이블에 필드가 없으면 추가
+DO $$
+BEGIN
+    -- personality_tags 필드 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'personality_tags'
+    ) THEN
+        ALTER TABLE customers ADD COLUMN personality_tags TEXT[];
+        RAISE NOTICE 'personality_tags 필드 추가됨';
+    END IF;
+
+    -- personality_tags GIN 인덱스 생성
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes WHERE indexname = 'idx_customers_personality_tags'
+    ) THEN
+        CREATE INDEX idx_customers_personality_tags ON customers USING GIN(personality_tags);
+    END IF;
+
+    -- communication_style 필드 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'communication_style'
+    ) THEN
+        ALTER TABLE customers ADD COLUMN communication_style JSONB;
+        RAISE NOTICE 'communication_style 필드 추가됨';
+    END IF;
+
+    -- communication_style GIN 인덱스 생성
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes WHERE indexname = 'idx_customers_communication_style'
+    ) THEN
+        CREATE INDEX idx_customers_communication_style ON customers USING GIN(communication_style);
+    END IF;
+
+    -- llm_guidance 필드 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'llm_guidance'
+    ) THEN
+        ALTER TABLE customers ADD COLUMN llm_guidance TEXT;
+        RAISE NOTICE 'llm_guidance 필드 추가됨';
+    END IF;
+
+    -- customer_type_codes 필드 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'customer_type_codes'
+    ) THEN
+        ALTER TABLE customers ADD COLUMN customer_type_codes TEXT[];
+        CREATE INDEX IF NOT EXISTS idx_customers_type_codes ON customers USING GIN(customer_type_codes);
+        RAISE NOTICE 'customer_type_codes 필드 추가됨';
+    END IF;
+
+    -- birth_date 필드 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'birth_date'
+    ) THEN
+        ALTER TABLE customers ADD COLUMN birth_date DATE;
+        CREATE INDEX IF NOT EXISTS idx_customers_birth_date ON customers(birth_date);
+        RAISE NOTICE 'birth_date 필드 추가됨';
+    END IF;
+
+    -- address 필드 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'address'
+    ) THEN
+        ALTER TABLE customers ADD COLUMN address VARCHAR(300);
+        RAISE NOTICE 'address 필드 추가됨';
+    END IF;
+
+    -- card_issue_date 필드 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'card_issue_date'
+    ) THEN
+        ALTER TABLE customers ADD COLUMN card_issue_date DATE;
+        RAISE NOTICE 'card_issue_date 필드 추가됨';
+    END IF;
+
+    -- card_expiry_date 필드 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'card_expiry_date'
+    ) THEN
+        ALTER TABLE customers ADD COLUMN card_expiry_date DATE;
+        RAISE NOTICE 'card_expiry_date 필드 추가됨';
+    END IF;
+
+    -- current_type_code 필드 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'current_type_code'
+    ) THEN
+        ALTER TABLE customers ADD COLUMN current_type_code VARCHAR(10);
+        CREATE INDEX IF NOT EXISTS idx_customers_current_type ON customers(current_type_code);
+        RAISE NOTICE 'current_type_code 필드 추가됨';
+    END IF;
+
+    -- type_history 필드 추가
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'type_history'
+    ) THEN
+        ALTER TABLE customers ADD COLUMN type_history JSONB DEFAULT '[]'::jsonb;
+        CREATE INDEX IF NOT EXISTS idx_customers_type_history ON customers USING GIN(type_history);
+        RAISE NOTICE 'type_history 필드 추가됨';
+    END IF;
+END $$;
+
+-- 5. 테이블 및 컬럼 코멘트
 COMMENT ON TABLE customers IS '고객 정보 테이블 - LLM 상담 가이던스용 페르소나 정보 포함';
 COMMENT ON COLUMN customers.id IS '고객 고유 ID (형식: CUST-TEDDY-00001)';
 COMMENT ON COLUMN customers.name IS '고객 실명 (마스킹은 Frontend에서 처리)';
@@ -94,92 +205,6 @@ COMMENT ON COLUMN customers.llm_guidance IS 'LLM에게 전달할 상담 가이�
 COMMENT ON COLUMN customers.total_consultations IS '총 상담 횟수';
 COMMENT ON COLUMN customers.resolved_first_call IS 'FCR 성공 횟수';
 COMMENT ON COLUMN customers.last_consultation_date IS '최근 상담 일자';
-
--- 5. 기존 테이블 업그레이드 (필드 추가)
--- 기존 customers 테이블에 birth_date, address 필드가 없으면 추가
-DO $$
-BEGIN
-    -- birth_date 필드 추가
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'customers' AND column_name = 'birth_date'
-    ) THEN
-        ALTER TABLE customers ADD COLUMN birth_date DATE;
-        CREATE INDEX IF NOT EXISTS idx_customers_birth_date ON customers(birth_date);
-        RAISE NOTICE 'birth_date 필드 추가됨';
-    ELSE
-        RAISE NOTICE 'birth_date 필드 이미 존재함';
-    END IF;
-    
-    -- address 필드 추가
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'customers' AND column_name = 'address'
-    ) THEN
-        ALTER TABLE customers ADD COLUMN address VARCHAR(300);
-        RAISE NOTICE 'address 필드 추가됨';
-    ELSE
-        RAISE NOTICE 'address 필드 이미 존재함';
-    END IF;
-
-    -- card_issue_date 필드 추가
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'customers' AND column_name = 'card_issue_date'
-    ) THEN
-        ALTER TABLE customers ADD COLUMN card_issue_date DATE;
-        RAISE NOTICE 'card_issue_date 필드 추가됨';
-    ELSE
-        RAISE NOTICE 'card_issue_date 필드 이미 존재함';
-    END IF;
-
-    -- card_expiry_date 필드 추가
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'customers' AND column_name = 'card_expiry_date'
-    ) THEN
-        ALTER TABLE customers ADD COLUMN card_expiry_date DATE;
-        RAISE NOTICE 'card_expiry_date 필드 추가됨';
-    ELSE
-        RAISE NOTICE 'card_expiry_date 필드 이미 존재함';
-    END IF;
-
-    -- customer_type_codes 필드 추가
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'customers' AND column_name = 'customer_type_codes'
-    ) THEN
-        ALTER TABLE customers ADD COLUMN customer_type_codes TEXT[];
-        CREATE INDEX IF NOT EXISTS idx_customers_type_codes ON customers USING GIN(customer_type_codes);
-        RAISE NOTICE 'customer_type_codes 필드 추가됨';
-    ELSE
-        RAISE NOTICE 'customer_type_codes 필드 이미 존재함';
-    END IF;
-
-    -- current_type_code 필드 추가
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'customers' AND column_name = 'current_type_code'
-    ) THEN
-        ALTER TABLE customers ADD COLUMN current_type_code VARCHAR(10);
-        CREATE INDEX IF NOT EXISTS idx_customers_current_type ON customers(current_type_code);
-        RAISE NOTICE 'current_type_code 필드 추가됨';
-    ELSE
-        RAISE NOTICE 'current_type_code 필드 이미 존재함';
-    END IF;
-
-    -- type_history 필드 추가
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'customers' AND column_name = 'type_history'
-    ) THEN
-        ALTER TABLE customers ADD COLUMN type_history JSONB DEFAULT '[]'::jsonb;
-        CREATE INDEX IF NOT EXISTS idx_customers_type_history ON customers USING GIN(type_history);
-        RAISE NOTICE 'type_history 필드 추가됨';
-    ELSE
-        RAISE NOTICE 'type_history 필드 이미 존재함';
-    END IF;
-END $$;
 
 -- 6. consultations 테이블에 customers FK 추가 (기존 테이블 업그레이드)
 -- 주의: 기존 customer_id 컬럼이 VARCHAR로 존재하므로, FK 관계만 추가

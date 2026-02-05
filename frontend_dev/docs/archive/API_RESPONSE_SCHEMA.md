@@ -15,7 +15,7 @@ CALL:ACT 시스템은 RAG(Retrieval-Augmented Generation) 기반으로 실시간
 export type DocumentType = 'terms' | 'product-spec' | 'analysis-report' | 'guide' | 'general';
 
 export interface ScenarioCard {
-  id: string;                      // 카드 고유 ID (예: "card-7-1-1")
+  id: string;                      // 카드 고유 ID (예: "card-6-1-1")
   title: string;                   // 카드 제목
   keywords: string[];              // 태그 배열 (예: ["보유카드", "포인트형", "혜택"])
   content: string;                 // 카드 간단 설명 (description)
@@ -90,7 +90,7 @@ export interface ScenarioCard {
 【고객 소비 패턴 분석 보고서】
 
 ■ 분석 기간: 2024년 10월 ~ 2024년 12월 (최근 3개월)
-■ 분석 대상: 강민지 고객님 (CUST-TEDDY-00007)
+■ 분석 대상: 강민지 고객님 (CUST-TEDDY-00006)
 
 【1. 월별 이용 현황】
 - 2024년 10월: 1,250,000원 (국내 75% / 해외 25%)
@@ -154,7 +154,7 @@ export interface ScenarioCard {
 
 ```json
 {
-  "id": "card-7-1-1",
+  "id": "card-6-1-1",
   "title": "현재 보유 카드 혜택",
   "keywords": ["보유카드", "포인트형", "혜택"],
   "content": "현재 사용 중인 테디 포인트 플러스 카드의 혜택 정보입니다.",
@@ -182,7 +182,7 @@ export interface ScenarioCard {
 
 ```json
 {
-  "id": "card-7-1-2",
+  "id": "card-6-1-2",
   "title": "고객 소비 패턴 분석",
   "keywords": ["소비패턴", "여행비중", "분석"],
   "content": "최근 3개월 소비 패턴을 분석하여 최적의 카드를 추천합니다.",
@@ -205,7 +205,7 @@ export interface ScenarioCard {
 
 ```json
 {
-  "id": "card-8-1-4",
+  "id": "card-7-1-4",
   "title": "바우처 이용 안내",
   "keywords": ["이용안내", "사용처", "잔액조회"],
   "content": "산부인과, 약국 등 지정 요양기관에서 바우처를 사용할 수 있습니다.",
@@ -225,7 +225,7 @@ export interface ScenarioCard {
 ## 🎯 필드별 가이드
 
 ### 필수 필드
-- `id`: 고유 식별자 (예: "card-7-1-1")
+- `id`: 고유 식별자 (예: "card-6-1-1")
 - `title`: 카드 제목
 - `keywords`: 태그 배열 (최소 1개 이상)
 - `content`: 간단 설명 (1-2문장)
@@ -301,21 +301,21 @@ export interface ScenarioCard {
 
 ## 📊 시나리오별 documentType 매핑
 
-### 시나리오 7 (포인트/혜택)
+### 시나리오 6 (포인트/혜택)
 | 카드 ID | 제목 | documentType |
 |---------|------|--------------|
-| card-7-1-1 | 현재 보유 카드 혜택 | product-spec |
-| card-7-1-2 | 고객 소비 패턴 분석 | analysis-report |
-| card-7-1-3 | 추천 카드: 테디 트래블로그 | product-spec |
-| card-7-1-4 | 혜택 비교 시뮬레이션 | analysis-report |
+| card-6-1-1 | 현재 보유 카드 혜택 | product-spec |
+| card-6-1-2 | 고객 소비 패턴 분석 | analysis-report |
+| card-6-1-3 | 추천 카드: 테디 트래블로그 | product-spec |
+| card-6-1-4 | 혜택 비교 시뮬레이션 | analysis-report |
 
-### 시나리오 8 (정부지원)
+### 시나리오 7 (정부지원)
 | 카드 ID | 제목 | documentType |
 |---------|------|--------------|
-| card-8-1-1 | 국민행복카드 안내 | product-spec |
-| card-8-1-2 | 바우처 자격 조회 | analysis-report |
-| card-8-1-3 | 카드 발급 신청 | product-spec |
-| card-8-1-4 | 바우처 이용 안내 | guide |
+| card-7-1-1 | 국민행복카드 안내 | product-spec |
+| card-7-1-2 | 바우처 자격 조회 | analysis-report |
+| card-7-1-3 | 카드 발급 신청 | product-spec |
+| card-7-1-4 | 바우처 이용 안내 | guide |
 
 ---
 

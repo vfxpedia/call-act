@@ -80,12 +80,16 @@ async def call_websocket_endpoint(websocket: WebSocket, consultation_id: str = N
     finally:
         whisper_service.stop()
         cleanup_session(session_id)
+
+        # 즉시 처리 중 상태 마커를 Redis에 저장 (followup API가 대기하도록)
+        await diarizer_manager.mark_processing_started()
+
         await asyncio.sleep(2)
-        
+
         final_start = time.perf_counter()
         final_script = await diarizer_manager.get_final_script(DIAR_SYSTEM_PROMPT)
         final_end = time.perf_counter()
         test_time = final_end - final_start
-        
+
         print(f"화자 분리 전문 : {final_script}")
         print(f"시간 : {test_time:.4f}s")

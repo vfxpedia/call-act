@@ -16,7 +16,7 @@ import { scenario6 } from '../../data/scenarios/scenario6';
 import { scenario7 } from '../../data/scenarios/scenario7';
 import { scenario8 } from '../../data/scenarios/scenario8';
 import { generateConsultationId } from '@/utils/consultationId';
-import { generateCustomerGuide, getCustomerTraitSummary, getTraitColor, getTraitIcon } from '@/utils/customerTraitGuide';
+import { generateCustomerGuide, getCustomerTraitSummary, getTraitColor, getTraitIcon, translatePersonalityTag } from '@/utils/customerTraitGuide';
 import { maskName, maskPhone, maskCardNumber } from '@/utils/mask';
 import { InlineMaskedText } from '@/app/components/ui/MaskedText';
 import { ProductAttributesGrid } from '@/app/components/cards/ProductAttributesGrid';
@@ -47,10 +47,14 @@ const defaultCustomerInfo = {
   phone: '010-1234-5678',
   birthDate: '1985-03-15',
   address: '서울시 강남구 테헤란로 123',
-  cardName: undefined,
-  cardNumber: undefined,
-  cardIssueDate: undefined,
-  cardExpiryDate: undefined,
+  cardName: undefined as string | undefined,
+  cardNumber: undefined as string | undefined,
+  cardIssueDate: undefined as string | undefined,
+  cardExpiryDate: undefined as string | undefined,
+  // 실제 DB에서 가져오는 고객 특성 필드
+  grade: undefined as string | undefined,
+  personalityTags: undefined as string[] | undefined,
+  llmGuidance: undefined as string | undefined,
 };
 
 const defaultRecentConsultations = [
@@ -379,6 +383,26 @@ export default function RealTimeConsultationPage() {
 
   // ⭐ [v23] RAGCard → ScenarioCard 변환 함수
   const convertRagToScenarioCard = useCallback((ragCard: RAGCard, index: number): ScenarioCard => {
+    // ⭐ documentType 추론 (테이블 또는 제목 기반)
+    const inferDocumentType = (): 'terms' | 'product-spec' | 'guide' | 'general' | undefined => {
+      const raw = ragCard as Record<string, unknown>;
+      const table = String(raw.table || raw.source_table || '');
+      const title = String(ragCard.title || '').toLowerCase();
+      const id = String(ragCard.id || '').toLowerCase();
+
+      // 테이블 기반 추론
+      if (table === 'card_products' || id.startsWith('card-')) {
+        return 'product-spec';
+      }
+      if (table === 'service_guide_documents' || title.includes('안내') || title.includes('가이드')) {
+        return 'guide';
+      }
+      if (title.includes('약관') || title.includes('조건')) {
+        return 'terms';
+      }
+      return 'general';
+    };
+
     return {
       id: ragCard.id || `rag-${Date.now()}-${index}`,
       title: ragCard.title || '정보 카드',
@@ -387,19 +411,57 @@ export default function RealTimeConsultationPage() {
       systemPath: (ragCard as Record<string, unknown>).systemPath as string || '',
       requiredChecks: (ragCard as Record<string, unknown>).requiredChecks as string[] || [],
       exceptions: (ragCard as Record<string, unknown>).exceptions as string[] || [],
-      time: (ragCard as Record<string, unknown>).time as string || '',
+      time: (ragCard as Record<string, unknown>).time as string || '약 1분',
       note: (ragCard as Record<string, unknown>).note as string || '',
       regulation: (ragCard as Record<string, unknown>).regulation as string || '',
       fullText: (ragCard as Record<string, unknown>).detailContent as string || ragCard.content || '',
       relevanceScore: (ragCard as Record<string, unknown>).relevanceScore as number || 0,
       timestamp: new Date().toISOString(),
       displayTime: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')} (방금 전)`,
+      documentType: inferDocumentType(), // ⭐ 5가지 카드 타입별 디자인 적용
     };
+  }, []);
+
+  // ⭐ [v24] STT 결과 수신 핸들러 (startTimestamp는 아래에서 정의되므로 ref 사용)
+  const startTimestampRef = useRef<number>(0);
+
+  const handleSttResult = useCallback((text: string) => {
+    console.log('[STT] 음성 인식 결과:', text);
+
+    // ⭐ STT 결과 수신 = RAG 처리 시작 → 로딩 인디케이터 표시
+    setIsAnalyzing(true);
+
+    // STT 텍스트를 단어 단위로 분리하여 표시
+    const words = text.split(/\s+/).filter(w => w.length > 0);
+
+    // 키워드 감지 (모든 카테고리에서)
+    const allKeywords = Object.values(incomingKeywordsByCase).flat();
+    const newTexts = words.map(word => ({
+      text: word + ' ',
+      isKeyword: allKeywords.some(kw => word.includes(kw) || kw.includes(word)),
+      speaker: 'customer' as const,
+    }));
+
+    setSttTexts(prev => [...prev, ...newTexts]);
+
+    // STT 전문에도 추가
+    const currentTimestamp = startTimestampRef.current || Date.now();
+    setSttTranscript(prev => [
+      ...prev,
+      {
+        speaker: 'customer',
+        message: text,
+        timestamp: Math.floor((Date.now() - currentTimestamp) / 1000),
+      }
+    ]);
   }, []);
 
   // ⭐ [v23] 웹소켓 음성 녹음 + RAG 결과 수신
   const handleRagResult = useCallback((data: RAGResponse) => {
     console.log('[RAG] 결과 수신:', data);
+
+    // ⭐ RAG 결과 수신 시 로딩 인디케이터 해제
+    setIsAnalyzing(false);
 
     // 현재 상황 카드 업데이트 (최대 4개 유지)
     if (data.currentSituation && data.currentSituation.length > 0) {
@@ -425,23 +487,32 @@ export default function RealTimeConsultationPage() {
       setRagGuidanceScript(data.guidanceScript);
     }
 
-    // 키워드 추출 (routing에서)
+    // ⭐ 키워드 추출 (routing에서) - displayedKeywords도 함께 업데이트
     if (data.routing) {
       const routing = data.routing as Record<string, unknown>;
       const keywords: string[] = [];
       if (routing.card_name) keywords.push(String(routing.card_name));
       if (routing.intent) keywords.push(String(routing.intent));
       if (keywords.length > 0) {
+        // incomingKeywords 업데이트
         setIncomingKeywords(prev => {
           const combined = [...new Set([...prev, ...keywords])];
           return combined.slice(0, 3); // 최대 3개
         });
+        // ⭐ displayedKeywords도 업데이트 (화면에 실제 표시되는 키워드)
+        setDisplayedKeywords(prev => {
+          const combined = [...new Set([...prev, ...keywords])];
+          return combined.slice(0, 3); // 최대 3개
+        });
+        setIsExtractingKeywords(false); // 키워드 추출 완료
+        console.log('🔑 [RAG] 키워드 추출:', keywords);
       }
     }
   }, []);
 
   const { start: startRecording, stop: stopRecording, wsStatus, sessionId } = useVoiceRecorder({
     onRagResult: handleRagResult,
+    onSttResult: handleSttResult,  // ⭐ [v24] STT 결과 콜백 연결
     onSessionId: (id) => console.log('[WebSocket] 세션 연결:', id),
   });
 
@@ -512,6 +583,12 @@ export default function RealTimeConsultationPage() {
     }
     return 0;
   }); // ⭐ 통화 시작 타임스탬프 (고정값)
+
+  // ⭐ [v24] startTimestamp를 ref에 동기화 (handleSttResult에서 사용)
+  useEffect(() => {
+    startTimestampRef.current = startTimestamp;
+  }, [startTimestamp]);
+
   const [isDirectIncoming, setIsDirectIncoming] = useState(() => {
     const activeCallState = localStorage.getItem('activeCallState');
     if (activeCallState) {
@@ -1233,10 +1310,11 @@ export default function RealTimeConsultationPage() {
   useEffect(() => {
     // ⭐ 통화 중이 아니거나 시나리오가 없으면 중단
     if (!isCallActive || !activeScenario) return;
-    
-    // ⭐ 교육 모드(가이드 아님)에서는 Mock 데이터 표시 안 함 (백엔드 연동 대기)
-    if (isSimulationMode && !isGuideModeActive) {
-      console.log('🚫 교육 모드: Mock STT 시뮬레이션 스킵 (백엔드 연동 대기)');
+
+    // ⭐ 다이렉트 콜인 경우에만 Mock STT 스킵 (WebSocket 실시간 STT 사용)
+    // 대기콜(시나리오 기반)은 항상 Mock STT 시뮬레이션 진행
+    if (isDirectIncoming) {
+      console.log('📞 다이렉트 콜: Mock STT 시뮬레이션 스킵 (WebSocket 실시간 STT 사용)');
       return;
     }
 
@@ -1421,7 +1499,7 @@ export default function RealTimeConsultationPage() {
       // 이 메시지를 처리했으므로 인덱스 증가
       displayedSttIndexRef.current = i + 1;
     }
-  }, [callTime, isCallActive, activeScenario, currentStep, isSimulationMode, isGuideModeActive, startTimestamp]);
+  }, [callTime, isCallActive, activeScenario, currentStep, isDirectIncoming, startTimestamp]);
 
   // ⭐ Phase 3-4: 다단계 카드 시스템 - Step 자동 전환 (비활성화 - STT 키워드 기반 전환으로 대체)
   // 이제 STT에서 실제로 다음 Step의 키워드가 감지될 때만 Step이 전환됩니다.
@@ -1592,6 +1670,13 @@ export default function RealTimeConsultationPage() {
     localStorage.removeItem('consultationMemo');
     localStorage.removeItem('activeCallState'); // ⭐ 이전 통화 상태 완전 삭제
     localStorage.removeItem('searchHistory'); // ⭐ 검색 이력 초기화
+    // ⭐ LLM 관련 데이터 초기화 (이전 상담 데이터 제거)
+    localStorage.removeItem('llmEvaluation');
+    localStorage.removeItem('llmApiResult');
+    localStorage.removeItem('consultationTranscript');
+    localStorage.removeItem('useLLMScript');
+    localStorage.removeItem('pendingACW');
+    console.log('🧹 [새 통화] localStorage 전체 초기화 완료');
     
     // ⭐ 새 통화 시작 - 복원 플래그 해제
     setIsRestoredCall(false);
@@ -1605,6 +1690,14 @@ export default function RealTimeConsultationPage() {
     setShowNextStepCards(false);
     setShowCustomerInfo(false);
     setShowRecentConsultations(false);
+
+    // ⭐ [v24] 다이렉트 콜: 시나리오 초기화 (RAG 카드 표시를 위해)
+    // 가이드 모드에서 시나리오 선택 후 통화하는 경우는 위에서 이미 처리됨 (차단 또는 허용)
+    // 여기까지 왔다면 순수 다이렉트 콜이므로 시나리오 초기화 필요
+    setActiveScenario(null);
+    setCurrentStep(0);
+    setPreviousStep(0);
+    setMaxReachedStep(0);
 
     // ⭐ [v23] RAG 카드 초기화
     setRagCurrentCards([]);
@@ -1669,10 +1762,44 @@ export default function RealTimeConsultationPage() {
             cardNumber: customer.cardNumber,
             cardIssueDate: customer.cardIssueDate,
             cardExpiryDate: customer.cardExpiryDate,
+            // 고객 특성 (DB에서 가져온 페르소나 정보)
+            grade: customer.grade,
+            personalityTags: customer.personalityTags,
+            llmGuidance: customer.llmGuidance,
           });
 
           // 고객 정보 표시
           setTimeout(() => setShowCustomerInfo(true), 500);
+
+          // 디버그: 고객 특성 정보 확인
+          console.log('🏷️ 고객 특성 확인:', {
+            grade: customer.grade,
+            personalityTags: customer.personalityTags,
+            llmGuidance: customer.llmGuidance,
+            isArray: Array.isArray(customer.personalityTags),
+            length: customer.personalityTags?.length
+          });
+
+          // 최근 상담 내역 API 호출
+          if (customer.id) {
+            fetch(`http://127.0.0.1:8000/api/v1/customers/${customer.id}/consultations?limit=3`)
+              .then(res => res.json())
+              .then(historyResponse => {
+                if (historyResponse.success && historyResponse.data && historyResponse.data.length > 0) {
+                  console.log('📋 최근 상담 내역 수신:', historyResponse.data);
+                  setRecentConsultations(historyResponse.data);
+                  setTimeout(() => setShowRecentConsultations(true), 800);
+                } else {
+                  console.log('📋 최근 상담 내역 없음');
+                  // 상담 내역이 없으면 숨김 유지
+                  setShowRecentConsultations(false);
+                }
+              })
+              .catch(historyErr => {
+                console.warn('⚠️ 최근 상담 내역 API 실패:', historyErr);
+                setShowRecentConsultations(false);
+              });
+          }
         }
       })
       .catch(err => {
@@ -1836,7 +1963,36 @@ export default function RealTimeConsultationPage() {
         }
       });
     });
-    
+
+    // ⭐ [v24] RAG 실시간 카드도 참조 문서로 추가 (시나리오 없는 다이렉트 콜 모드)
+    if (!activeScenario) {
+      // 현재 상황 정보 카드 (상단)
+      ragCurrentCards.forEach((ragCard, index) => {
+        if (!referencedDocs.some(doc => doc.documentId === ragCard.id)) {
+          referencedDocs.push({
+            stepNumber: 0,
+            documentId: ragCard.id,
+            title: ragCard.title,
+            used: true
+          });
+        }
+      });
+
+      // 다음 단계 가이드 카드 (하단)
+      ragNextCards.forEach((ragCard, index) => {
+        if (!referencedDocs.some(doc => doc.documentId === ragCard.id)) {
+          referencedDocs.push({
+            stepNumber: 0,
+            documentId: ragCard.id,
+            title: ragCard.title,
+            used: true
+          });
+        }
+      });
+
+      console.log('🤖 [통화 종료] RAG 실시간 카드 추가:', ragCurrentCards.length + ragNextCards.length, '개');
+    }
+
     // 참조 문서가 하나라도 있으면 저장
     if (referencedDocs.length > 0) {
       localStorage.setItem('referencedDocuments', JSON.stringify(referencedDocs));
@@ -1930,20 +2086,72 @@ export default function RealTimeConsultationPage() {
     // ⭐ 교육 모드 sessionStorage는 후처리 완료 후 삭제 (LoadingPage와 AfterCallWorkPage에서 읽어야 하므로)
     // sessionStorage 정리는 AfterCallWorkPage의 저장 완료 시점에서 처리
     
-    // ⭐ Mock LLM 응답 (12초 후 - 로딩 페이지 10초 + 여유 2초)
-    setTimeout(() => {
-      const llmData = {
-        title: '카드 분실 신고 및 재발급 처리',
-        status: '완료',
-        aiSummary: '문의사항: 고객이 카드를 분실하여 즉시 사용 정지 및 재발급 요청\n\n처리 결과: 카드 사용 즉시 정지 처리 완료. 재발급 카드 신청 접수하였으며, 등록된 주소(서울시 강남구 테헤란로 123)로 3-5일 내 배송 예정. 고객에게 배송 추적 안내 완료.',
-        followUpTasks: '',
-        handoffDepartment: '없음',
-        handoffNotes: '',
-      };
-      localStorage.setItem('llmAnalysisResult', JSON.stringify(llmData));
-      window.dispatchEvent(new CustomEvent('llmAnalysisComplete', { detail: llmData }));
-      console.log('🤖 LLM 분석 완료 (Mock):', llmData);
-    }, 12000);
+    // ⭐ [v24] 실제 LLM API 호출 (팀 기존 코드 /api/v1/followup 사용)
+    const callACWAnalysis = async () => {
+      try {
+        // ⭐ WebSocket의 sessionId 사용 (Redis key와 매칭되어야 함)
+        // 대화 데이터는 Redis에 stt:{sessionId} 형식으로 저장됨
+        const dialogueSessionId = sessionId || consultationId;
+        console.log('🤖 [ACW] LLM 분석 API 호출 시작 (session_id:', dialogueSessionId, ')');
+
+        // ⭐ 팀원이 작성한 기존 followup API 사용
+        const response = await fetch('http://127.0.0.1:8000/api/v1/followup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            consultation_id: dialogueSessionId,  // WebSocket sessionId 사용
+            is_simulation: isSimulationMode
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`API 오류: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('🤖 [ACW] LLM 분석 응답:', result);
+
+        if (result.isSuccess && result.summary) {
+          // ⭐ followup API 응답을 ACW 페이지 형식으로 변환
+          const llmData = {
+            title: result.summary.title || '상담 내역',
+            status: result.summary.status || '완료',
+            category: result.summary.category_main || '',
+            subcategory: result.summary.category_sub || '',
+            inquiry: result.summary.inquiry || '',
+            process: result.summary.process || [],
+            aiSummary: result.summary.result || '',  // summary.result → aiSummary
+            followUpTasks: result.summary.next_step || '',
+            handoffDepartment: result.summary.transfer_dep || '없음',
+            handoffNotes: result.summary.transfer_note || '',
+            handledCategories: result.summary.handled_categories || [],
+            evaluation: result.evaluation || null,
+            script: result.script || null
+          };
+          localStorage.setItem('llmApiResult', JSON.stringify(llmData));
+          window.dispatchEvent(new CustomEvent('llmAnalysisComplete', { detail: llmData }));
+          console.log('🤖 LLM 분석 완료:', llmData);
+        } else {
+          throw new Error(result.message || '분석 실패');
+        }
+      } catch (error) {
+        console.error('🤖 [ACW] LLM 분석 실패:', error);
+        // 폴백: Mock 데이터
+        const llmData = {
+          title: '상담 내역',
+          status: '완료',
+          aiSummary: '상담 내용 분석에 실패했습니다. 수동으로 입력해주세요.',
+          followUpTasks: '',
+          handoffDepartment: '없음',
+          handoffNotes: '',
+        };
+        localStorage.setItem('llmApiResult', JSON.stringify(llmData));
+        window.dispatchEvent(new CustomEvent('llmAnalysisComplete', { detail: llmData }));
+      }
+    };
+
+    // 2초 후 API 호출 (페이지 전환 후)
+    setTimeout(callACWAnalysis, 2000);
   };
 
   const handleCancelEndCall = () => {
@@ -2096,13 +2304,19 @@ export default function RealTimeConsultationPage() {
     localStorage.removeItem('currentScenarioCategory');
     localStorage.removeItem('consultationMemo');
     localStorage.removeItem('activeCallState'); // ⭐ 이전 통화 상태 완전 삭제
-    
+    // ⭐ LLM 관련 데이터 초기화 (이전 상담 데이터 제거)
+    localStorage.removeItem('llmEvaluation');
+    localStorage.removeItem('llmApiResult');
+    localStorage.removeItem('consultationTranscript');
+    localStorage.removeItem('useLLMScript');
+    localStorage.removeItem('pendingACW');
+
     // ⭐ 검색 이력 및 검색 문서 초기화
     clearSearchHistory();
     setSearchHistory([]);
     setSearchedDocuments([]);
-    
-    console.log('🔄 새 상담 시작: localStorage 초기화 완료');
+
+    console.log('🧹 [새 상담] localStorage 전체 초기화 완료');
 
     // ⭐ 즉시 초기화 (React 배치 업데이트 방지)
     setDisplayedKeywords([]);
@@ -2457,25 +2671,64 @@ export default function RealTimeConsultationPage() {
             )}
 
             {/* ⭐ Phase 9: 고객 특성 가이드 - 고객 정보 바로 아래 표시 */}
-            {showCustomerInfo && activeScenario && activeScenario.customer.traits && activeScenario.customer.traits.length > 0 && (
+            {/* 시나리오 모드: activeScenario.customer.traits 사용 */}
+            {/* 다이렉트 콜 모드: customerInfo.personalityTags + grade 사용 */}
+            {(() => {
+              // 등급 한글 매핑
+              const gradeMap: { [key: string]: string } = {
+                'VIP': 'VIP',
+                'GOLD': 'GOLD',
+                'PREMIUM': 'PREMIUM',
+                'SILVER': 'SILVER',
+                'GENERAL': '일반',
+              };
+
+              // 다이렉트 콜용 태그 배열 생성 (personalityTags + grade, 최대 4개)
+              const directCallTags: string[] = [];
+              if (isDirectIncoming && !activeScenario) {
+                // grade가 있으면 먼저 추가 (짧게 표시)
+                if (customerInfo?.grade) {
+                  const gradeLabel = gradeMap[customerInfo.grade] || customerInfo.grade;
+                  directCallTags.push(gradeLabel);
+                }
+                // personalityTags 추가 (영어→한글 변환)
+                if (customerInfo?.personalityTags && Array.isArray(customerInfo.personalityTags)) {
+                  const translatedTags = customerInfo.personalityTags.map(tag => translatePersonalityTag(tag));
+                  directCallTags.push(...translatedTags);
+                }
+              }
+              const hasScenarioTraits = activeScenario?.customer?.traits && activeScenario.customer.traits.length > 0;
+              const hasDirectCallTags = directCallTags.length > 0;
+              const shouldShowTraitGuide = showCustomerInfo && (hasScenarioTraits || hasDirectCallTags);
+
+              if (!shouldShowTraitGuide) return null;
+
+              // 표시할 태그 결정 (최대 4개)
+              const tagsToShow = hasScenarioTraits
+                ? activeScenario.customer.traits.slice(0, 4)
+                : directCallTags.slice(0, 4);
+
+              return (
               <div className="flex-shrink-0 animate-[slideInFromTop_0.5s_ease-out] mt-3">
                 <h3 className="text-xs font-bold text-[#333333] mb-2">
                   {isSimulationMode ? '가상 고객 특성 가이드' : '고객 특성 가이드'}
                 </h3>
-                
+
                 <div className="bg-white rounded-md border border-[#E0E0E0] p-2.5">
                   {/* 태그 표시 - 최대 4개, 2열 그리드 */}
                   <div className="grid grid-cols-2 gap-1.5 mb-2">
-                    {activeScenario.customer.traits.slice(0, 4).map((trait, index) => {
+                    {tagsToShow.map((trait, index) => {
                       const colors = getTraitColor(trait);
                       return (
                         <span
                           key={index}
-                          className="px-2 py-0.5 rounded text-[10px] font-medium text-center"
-                          style={{ 
+                          className="px-2 py-0.5 rounded text-[10px] font-medium text-center whitespace-nowrap overflow-hidden text-ellipsis"
+                          style={{
                             backgroundColor: colors.bg,
-                            color: colors.text
+                            color: colors.text,
+                            maxWidth: '100%'
                           }}
+                          title={trait}
                         >
                           {trait}
                         </span>
@@ -2483,14 +2736,16 @@ export default function RealTimeConsultationPage() {
                     })}
                   </div>
 
-                  {/* 상담 가이드 */}
-                  <p className="text-[11px] text-[#333333] leading-relaxed">
-                    {activeScenario.customer.preferredStyle || 
-                     `${getCustomerTraitSummary(activeScenario.customer)} 특성이 있습니다.`}
+                  {/* 상담 가이드 - 시나리오: preferredStyle, 다이렉트 콜: llmGuidance (개행 처리) */}
+                  <p className="text-[11px] text-[#333333] leading-relaxed whitespace-pre-line">
+                    {activeScenario?.customer?.preferredStyle ||
+                     customerInfo?.llmGuidance ||
+                     (activeScenario?.customer ? `${getCustomerTraitSummary(activeScenario.customer)} 특성이 있습니다.` : '고객 특성 정보를 확인 중입니다.')}
                   </p>
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* 최근 상담 내역 - Phase 3-1.5: 고객 정보 후 등장 */}
             {showRecentConsultations && (
@@ -2630,9 +2885,11 @@ export default function RealTimeConsultationPage() {
                       </div>
                     </div>
           
-                    {/* 우측: 상담 안내 멘트 (남은 공간 모두 사용) - 다이렉트 인입 시 표시 안함 */}
-                    {!isDirectIncoming && isKeywordDetected && showNextStepCards && (
-                      <div 
+                    {/* 우측: 상담 안내 멘트 (남은 공간 모두 사용) */}
+                    {/* 대기콜: 시나리오 기반 안내 멘트 / 다이렉트 콜: RAG 기반 안내 멘트 */}
+                    {((!isDirectIncoming && isKeywordDetected && showNextStepCards) ||
+                      (isDirectIncoming && ragGuidanceScript)) && (
+                      <div
                         className="flex-1 bg-[#F0F7FF] border-l-4 border-[#0047AB] rounded-md p-2.5"
                         style={{
                           animation: 'fadeInUp 0.6s ease-out 0.3s both'
@@ -2643,9 +2900,11 @@ export default function RealTimeConsultationPage() {
                           <div className="flex-1">
                             <h3 className="text-[10px] font-bold text-[#0047AB] mb-1">상담 안내 멘트</h3>
                             <p className="text-[10px] text-[#333333] leading-relaxed">
-                              {activeScenario && currentStep > 0 
-                                ? (activeScenario.steps[currentStep - 1]?.guidanceScript || guidanceScript)
-                                : guidanceScript}
+                              {isDirectIncoming
+                                ? ragGuidanceScript
+                                : (activeScenario && currentStep > 0
+                                    ? (activeScenario.steps[currentStep - 1]?.guidanceScript || guidanceScript)
+                                    : guidanceScript)}
                             </p>
                           </div>
                         </div>
@@ -2743,20 +3002,20 @@ export default function RealTimeConsultationPage() {
                           />
                         </motion.div>
                       ))}
-                      {/* ⭐ [v23] RAG 기반 카드 (실시간 모드) */}
+                      {/* ⭐ [v23] RAG 기반 카드 (실시간 모드) - 우→좌 슬라이드 애니메이션 */}
                       {!activeScenario && ragCurrentCards.length > 0 && ragCurrentCards.slice(0, 2).map((ragCard, index) => {
                         const card = convertRagToScenarioCard(ragCard, index);
                         return (
                           <motion.div
                             key={`rag-current-${card.id}`}
-                            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            initial={{ opacity: 0, x: 50 }}
+                            animate={{ opacity: 1, x: 0 }}
                             transition={{
                               type: 'spring',
-                              stiffness: 150,
-                              damping: 28,
+                              stiffness: 120,
+                              damping: 20,
                               mass: 0.8,
-                              delay: index * 0.05
+                              delay: index * 0.1
                             }}
                           >
                             <InfoCard
@@ -2819,20 +3078,20 @@ export default function RealTimeConsultationPage() {
                           />
                         </motion.div>
                       ))}
-                      {/* ⭐ [v23] RAG 기반 카드 (실시간 모드) */}
+                      {/* ⭐ [v23] RAG 기반 카드 (실시간 모드) - 우→좌 슬라이드 애니메이션 */}
                       {!activeScenario && ragNextCards.length > 0 && ragNextCards.slice(0, 2).map((ragCard, index) => {
                         const card = convertRagToScenarioCard(ragCard, index);
                         return (
                           <motion.div
                             key={`rag-next-${card.id}`}
-                            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            initial={{ opacity: 0, x: 50 }}
+                            animate={{ opacity: 1, x: 0 }}
                             transition={{
                               type: 'spring',
-                              stiffness: 150,
-                              damping: 28,
+                              stiffness: 120,
+                              damping: 20,
                               mass: 0.8,
-                              delay: index * 0.05
+                              delay: index * 0.1
                             }}
                           >
                             <InfoCard

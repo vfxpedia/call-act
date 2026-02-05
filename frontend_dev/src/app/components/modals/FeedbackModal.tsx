@@ -1,15 +1,16 @@
 import { X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../ui/button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
-import { 
+import {
   mockFeedbackData,
   calculateAcwTimeScore,
   getManualComplianceMessage,
   getGratitudeMessage,
   getAcwTimeMessage,
   getEmotionTransitionMessage,
-  getAhtMessage
+  getAhtMessage,
+  EmotionAnalysis
 } from '../../../data/feedbackRules';
 
 interface FeedbackModalProps {
@@ -20,15 +21,125 @@ interface FeedbackModalProps {
   callTimeSeconds?: number; // ⭐ 통화 시간 (초 단위)
 }
 
-export default function FeedbackModal({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
+// ⭐ LLM 평가 데이터 타입 정의
+interface LLMEvaluation {
+  manual_compliance: {
+    intro_score: number;
+    response_score: number;
+    explanation_score: number;
+    proactivity_score: number;
+    accuracy_score: number;
+    manual_score: string | number;
+  };
+  customer_thanks: {
+    count: number;
+    thanks_score: string | number;
+  };
+  feedback: string;
+  emotions: {
+    early: string;
+    mid: string;
+    late: string;
+  };
+  emotion_score?: number;
+}
+
+// ⭐ 한글 감정을 영어로 매핑
+function mapEmotionToEnglish(koreanEmotion: string): 'negative' | 'neutral' | 'positive' {
+  const emotionMap: { [key: string]: 'negative' | 'neutral' | 'positive' } = {
+    '부정': 'negative',
+    '중립': 'neutral',
+    '긍정': 'positive'
+  };
+  return emotionMap[koreanEmotion] || 'neutral';
+}
+
+// ⭐ 점수 문자열에서 숫자 추출 ("45점" -> 45)
+function parseScore(scoreValue: string | number): number {
+  if (typeof scoreValue === 'number') return scoreValue;
+  const match = scoreValue.match(/(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+export default function FeedbackModal({
+  isOpen,
+  onClose,
+  onConfirm,
   acwTimeSeconds = 0,
   callTimeSeconds = 0
 }: FeedbackModalProps) {
   const [dontShowToday, setDontShowToday] = useState(false);
   const [showDetailScores, setShowDetailScores] = useState(false);
+
+  // ⭐ localStorage에서 LLM 평가 데이터 읽기
+  const llmEvaluation = useMemo<LLMEvaluation | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('llmEvaluation');
+    if (!stored) return null;
+    try {
+      const parsed = JSON.parse(stored);
+      console.log('📊 [FeedbackModal] LLM 평가 데이터 로드:', parsed);
+      return parsed;
+    } catch (e) {
+      console.error('❌ [FeedbackModal] LLM 평가 데이터 파싱 오류:', e);
+      return null;
+    }
+  }, [isOpen]);
+
+  // ⭐ 실제 데이터 또는 mock 데이터 사용
+  const feedbackData = useMemo(() => {
+    if (llmEvaluation) {
+      // LLM 데이터를 피드백 형식에 맞게 변환
+      const manualScore = parseScore(llmEvaluation.manual_compliance?.manual_score || 0);
+      const thanksScore = parseScore(llmEvaluation.customer_thanks?.thanks_score || 0);
+      const emotionScore = llmEvaluation.emotion_score ?? 0;
+
+      // 감정 데이터 매핑 (mid -> middle)
+      const emotions: EmotionAnalysis = {
+        early: mapEmotionToEnglish(llmEvaluation.emotions?.early || '중립'),
+        middle: mapEmotionToEnglish(llmEvaluation.emotions?.mid || '중립'),
+        late: mapEmotionToEnglish(llmEvaluation.emotions?.late || '중립')
+      };
+
+      // 매뉴얼 상세 점수 매핑
+      const manualDetails = {
+        greeting: llmEvaluation.manual_compliance?.intro_score || 0,
+        customerCheck: 0, // intro_score에 포함
+        empathy: llmEvaluation.manual_compliance?.response_score || 0,
+        apology: 0, // response_score에 포함
+        communication: llmEvaluation.manual_compliance?.explanation_score || 0,
+        explanation: 0, // explanation_score에 포함
+        proactiveness: llmEvaluation.manual_compliance?.proactivity_score || 0,
+        language: 0, // proactivity_score에 포함
+        accuracy: llmEvaluation.manual_compliance?.accuracy_score || 0
+      };
+
+      console.log('✅ [FeedbackModal] 실제 LLM 데이터 사용:', {
+        manualScore,
+        thanksScore,
+        emotionScore,
+        emotions
+      });
+
+      return {
+        manualCompliance: manualScore,
+        customerGratitude: thanksScore,
+        emotionTransition: emotionScore,
+        emotion: emotions,
+        manualDetails
+      };
+    }
+
+    // LLM 데이터 없으면 mock 사용
+    console.log('⚠️ [FeedbackModal] LLM 데이터 없음 - mock 데이터 사용');
+    return {
+      manualCompliance: mockFeedbackData.manualCompliance,
+      customerGratitude: mockFeedbackData.customerGratitude,
+      emotionTransition: mockFeedbackData.emotionTransition,
+      emotion: mockFeedbackData.emotion,
+      manualDetails: mockFeedbackData.manualDetails
+    };
+  }, [llmEvaluation]);
 
   // ⭐ 후처리 시간 점수 계산 (업계 표준 기준: 45초 기준)
   const acwScore = acwTimeSeconds > 0 ? calculateAcwTimeScore(acwTimeSeconds) : mockFeedbackData.acwTime;
@@ -53,19 +164,33 @@ export default function FeedbackModal({
   const ahtDisplay = formatTime(ahtSeconds);
 
   // ⭐ 총점 재계산 (후처리 시간 반영)
-  const totalScore = mockFeedbackData.manualCompliance + 
-                     mockFeedbackData.customerGratitude + 
-                     acwScore + 
-                     mockFeedbackData.emotionTransition;
+  const totalScore = feedbackData.manualCompliance +
+                     feedbackData.customerGratitude +
+                     acwScore +
+                     feedbackData.emotionTransition;
 
   // ⭐ 오각형 차트 데이터 (5개 항목: 도입부, 응대, 설명, 적극성, 정확성)
-  const radarData = [
-    { category: '도입부', score: 9.5, maxScore: 10 },
-    { category: '응대', score: 10, maxScore: 10 },
-    { category: '설명', score: 10, maxScore: 10 },
-    { category: '적극성', score: 10, maxScore: 10 },
-    { category: '정확성', score: 10, maxScore: 10 },
-  ];
+  // LLM 데이터가 있으면 실제 점수 사용, 없으면 기본값
+  const radarData = useMemo(() => {
+    if (llmEvaluation) {
+      const mc = llmEvaluation.manual_compliance;
+      // 각 항목: 0점이면 10점(완벽), -5점이면 5점, -10점이면 0점
+      return [
+        { category: '도입부', score: 10 + (mc?.intro_score || 0), maxScore: 10 },
+        { category: '응대', score: 10 + (mc?.response_score || 0), maxScore: 10 },
+        { category: '설명', score: 10 + (mc?.explanation_score || 0), maxScore: 10 },
+        { category: '적극성', score: 10 + (mc?.proactivity_score || 0), maxScore: 10 },
+        { category: '정확성', score: 10 + (mc?.accuracy_score || 0), maxScore: 10 },
+      ];
+    }
+    return [
+      { category: '도입부', score: 9.5, maxScore: 10 },
+      { category: '응대', score: 10, maxScore: 10 },
+      { category: '설명', score: 10, maxScore: 10 },
+      { category: '적극성', score: 10, maxScore: 10 },
+      { category: '정확성', score: 10, maxScore: 10 },
+    ];
+  }, [llmEvaluation]);
 
   // ⭐ 감정 이모지 매핑
   const emotionEmoji = {
@@ -86,11 +211,11 @@ export default function FeedbackModal({
     positive: '긍정적',
   };
 
-  // ⭐ 메시지 함수 호출
-  const manualMessage = getManualComplianceMessage(mockFeedbackData.manualCompliance);
-  const gratitudeMessage = getGratitudeMessage(mockFeedbackData.customerGratitude);
+  // ⭐ 메시지 함수 호출 (실제 데이터 사용)
+  const manualMessage = getManualComplianceMessage(feedbackData.manualCompliance);
+  const gratitudeMessage = getGratitudeMessage(feedbackData.customerGratitude);
   const acwMessage = getAcwTimeMessage(acwTimeSeconds > 0 ? acwTimeSeconds : mockFeedbackData.acwTimeSeconds);
-  const emotionMessage = getEmotionTransitionMessage(mockFeedbackData.emotionTransition, mockFeedbackData.emotion);
+  const emotionMessage = getEmotionTransitionMessage(feedbackData.emotionTransition, feedbackData.emotion);
   const ahtMessage = getAhtMessage(ahtSeconds);
 
   // ⭐ "확인" 버튼 클릭
@@ -222,17 +347,17 @@ export default function FeedbackModal({
                     1. 매뉴얼 준수 <span className="text-xs text-[#666666]">- {manualMessage}</span>
                   </span>
                   <span className="text-sm font-bold text-[#0047AB]">
-                    {mockFeedbackData.manualCompliance}/50
+                    {feedbackData.manualCompliance}/50
                   </span>
                 </div>
                 <div className="bg-[#E0E0E0] h-2 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="bg-[#0047AB] h-full rounded-full transition-all duration-500"
-                    style={{ width: `${(mockFeedbackData.manualCompliance / 50) * 100}%` }}
+                    style={{ width: `${(feedbackData.manualCompliance / 50) * 100}%` }}
                   />
                 </div>
                 <p className="text-xs text-[#666666] mt-1">
-                  {Math.round((mockFeedbackData.manualCompliance / 50) * 100)}%
+                  {Math.round((feedbackData.manualCompliance / 50) * 100)}%
                 </p>
               </div>
 
@@ -243,17 +368,17 @@ export default function FeedbackModal({
                     2. 고객 감사 <span className="text-xs text-[#666666]">- {gratitudeMessage}</span>
                   </span>
                   <span className="text-sm font-bold text-[#34A853]">
-                    {mockFeedbackData.customerGratitude}/10
+                    {feedbackData.customerGratitude}/10
                   </span>
                 </div>
                 <div className="bg-[#E0E0E0] h-2 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="bg-[#34A853] h-full rounded-full transition-all duration-500"
-                    style={{ width: `${(mockFeedbackData.customerGratitude / 10) * 100}%` }}
+                    style={{ width: `${(feedbackData.customerGratitude / 10) * 100}%` }}
                   />
                 </div>
                 <p className="text-xs text-[#666666] mt-1">
-                  {Math.round((mockFeedbackData.customerGratitude / 10) * 100)}%
+                  {Math.round((feedbackData.customerGratitude / 10) * 100)}%
                 </p>
               </div>
 
@@ -285,17 +410,17 @@ export default function FeedbackModal({
                     4. 감정 전환 <span className="text-xs text-[#666666]">- {emotionMessage}</span>
                   </span>
                   <span className="text-sm font-bold text-[#FBBC04]">
-                    {mockFeedbackData.emotionTransition}/20
+                    {feedbackData.emotionTransition}/20
                   </span>
                 </div>
                 <div className="bg-[#E0E0E0] h-2 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="bg-[#FBBC04] h-full rounded-full transition-all duration-500"
-                    style={{ width: `${(mockFeedbackData.emotionTransition / 20) * 100}%` }}
+                    style={{ width: `${(feedbackData.emotionTransition / 20) * 100}%` }}
                   />
                 </div>
                 <p className="text-xs text-[#666666] mt-1">
-                  {Math.round((mockFeedbackData.emotionTransition / 20) * 100)}%
+                  {Math.round((feedbackData.emotionTransition / 20) * 100)}%
                 </p>
               </div>
             </div>
@@ -328,34 +453,34 @@ export default function FeedbackModal({
             <p className="text-sm font-semibold text-[#333333] mb-2">감정 변화</p>
             <div className="flex items-center justify-center gap-3">
               <div className="text-center">
-                <div className="text-3xl mb-1">{emotionEmoji[mockFeedbackData.emotion.early]}</div>
-                <div className="text-xs font-semibold" style={{ color: emotionColor[mockFeedbackData.emotion.early] }}>
-                  초반: {emotionText[mockFeedbackData.emotion.early]}
+                <div className="text-3xl mb-1">{emotionEmoji[feedbackData.emotion.early]}</div>
+                <div className="text-xs font-semibold" style={{ color: emotionColor[feedbackData.emotion.early] }}>
+                  초반: {emotionText[feedbackData.emotion.early]}
                 </div>
               </div>
               <div className="text-[#666666] text-xl">→</div>
               <div className="text-center">
-                <div className="text-3xl mb-1">{emotionEmoji[mockFeedbackData.emotion.middle]}</div>
-                <div className="text-xs font-semibold" style={{ color: emotionColor[mockFeedbackData.emotion.middle] }}>
-                  중반: {emotionText[mockFeedbackData.emotion.middle]}
+                <div className="text-3xl mb-1">{emotionEmoji[feedbackData.emotion.middle]}</div>
+                <div className="text-xs font-semibold" style={{ color: emotionColor[feedbackData.emotion.middle] }}>
+                  중반: {emotionText[feedbackData.emotion.middle]}
                 </div>
               </div>
               <div className="text-[#666666] text-xl">→</div>
               <div className="text-center">
-                <div className="text-3xl mb-1">{emotionEmoji[mockFeedbackData.emotion.late]}</div>
-                <div className="text-xs font-semibold" style={{ color: emotionColor[mockFeedbackData.emotion.late] }}>
-                  후반: {emotionText[mockFeedbackData.emotion.late]}
+                <div className="text-3xl mb-1">{emotionEmoji[feedbackData.emotion.late]}</div>
+                <div className="text-xs font-semibold" style={{ color: emotionColor[feedbackData.emotion.late] }}>
+                  후반: {emotionText[feedbackData.emotion.late]}
                 </div>
               </div>
             </div>
           </div>
 
           {/* 개선 필요 사항 */}
-          {mockFeedbackData.manualDetails.customerCheck < 0 && (
+          {feedbackData.manualDetails.customerCheck < 0 && (
             <div className="mb-5 p-3 bg-[#FFF9E6] border border-[#FBBC04] rounded-lg">
               <p className="text-sm text-[#666666]">
                 ⚠️ <span className="font-semibold text-[#EA4335]">개선 필요:</span> 고객확인 시 정보 누출 (
-                {mockFeedbackData.manualDetails.customerCheck}점)
+                {feedbackData.manualDetails.customerCheck}점)
               </p>
             </div>
           )}
@@ -380,56 +505,56 @@ export default function FeedbackModal({
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div className="flex items-center justify-between p-2 bg-white rounded border border-[#E0E0E0]">
                   <span className="text-xs text-[#666666]">첫/끝인사</span>
-                  <span className={`text-xs font-semibold ${mockFeedbackData.manualDetails.greeting === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
-                    {mockFeedbackData.manualDetails.greeting}점
+                  <span className={`text-xs font-semibold ${feedbackData.manualDetails.greeting === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
+                    {feedbackData.manualDetails.greeting}점
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-2 bg-white rounded border border-[#E0E0E0]">
                   <span className="text-xs text-[#666666]">고객확인</span>
-                  <span className={`text-xs font-semibold ${mockFeedbackData.manualDetails.customerCheck === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
-                    {mockFeedbackData.manualDetails.customerCheck}점
+                  <span className={`text-xs font-semibold ${feedbackData.manualDetails.customerCheck === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
+                    {feedbackData.manualDetails.customerCheck}점
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-2 bg-white rounded border border-[#E0E0E0]">
                   <span className="text-xs text-[#666666]">호응어</span>
-                  <span className={`text-xs font-semibold ${mockFeedbackData.manualDetails.empathy === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
-                    {mockFeedbackData.manualDetails.empathy}점
+                  <span className={`text-xs font-semibold ${feedbackData.manualDetails.empathy === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
+                    {feedbackData.manualDetails.empathy}점
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-2 bg-white rounded border border-[#E0E0E0]">
                   <span className="text-xs text-[#666666]">사과/대기표현</span>
-                  <span className={`text-xs font-semibold ${mockFeedbackData.manualDetails.apology === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
-                    {mockFeedbackData.manualDetails.apology}점
+                  <span className={`text-xs font-semibold ${feedbackData.manualDetails.apology === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
+                    {feedbackData.manualDetails.apology}점
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-2 bg-white rounded border border-[#E0E0E0]">
                   <span className="text-xs text-[#666666]">커뮤니케이션</span>
-                  <span className={`text-xs font-semibold ${mockFeedbackData.manualDetails.communication === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
-                    {mockFeedbackData.manualDetails.communication}점
+                  <span className={`text-xs font-semibold ${feedbackData.manualDetails.communication === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
+                    {feedbackData.manualDetails.communication}점
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-2 bg-white rounded border border-[#E0E0E0]">
                   <span className="text-xs text-[#666666]">알기 쉬운 설명</span>
-                  <span className={`text-xs font-semibold ${mockFeedbackData.manualDetails.explanation === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
-                    {mockFeedbackData.manualDetails.explanation}점
+                  <span className={`text-xs font-semibold ${feedbackData.manualDetails.explanation === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
+                    {feedbackData.manualDetails.explanation}점
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-2 bg-white rounded border border-[#E0E0E0]">
                   <span className="text-xs text-[#666666]">적극성</span>
-                  <span className={`text-xs font-semibold ${mockFeedbackData.manualDetails.proactiveness === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
-                    {mockFeedbackData.manualDetails.proactiveness}점
+                  <span className={`text-xs font-semibold ${feedbackData.manualDetails.proactiveness === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
+                    {feedbackData.manualDetails.proactiveness}점
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-2 bg-white rounded border border-[#E0E0E0]">
                   <span className="text-xs text-[#666666]">언어표현</span>
-                  <span className={`text-xs font-semibold ${mockFeedbackData.manualDetails.language === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
-                    {mockFeedbackData.manualDetails.language}점
+                  <span className={`text-xs font-semibold ${feedbackData.manualDetails.language === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
+                    {feedbackData.manualDetails.language}점
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-2 bg-white rounded border border-[#E0E0E0] col-span-2">
                   <span className="text-xs text-[#666666]">정확한 업무처리</span>
-                  <span className={`text-xs font-semibold ${mockFeedbackData.manualDetails.accuracy === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
-                    {mockFeedbackData.manualDetails.accuracy}점
+                  <span className={`text-xs font-semibold ${feedbackData.manualDetails.accuracy === 0 ? 'text-[#34A853]' : 'text-[#EA4335]'}`}>
+                    {feedbackData.manualDetails.accuracy}점
                   </span>
                 </div>
               </div>

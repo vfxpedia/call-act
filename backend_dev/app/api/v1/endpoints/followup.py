@@ -24,18 +24,19 @@ async def create_summary(request: SummaryRequest):
     try:
         script = None
         json_script = None
-        
-        # 데이터 확보를 위한 재시도 루프
-        for i in range(10):
+
+        # 데이터 확보를 위한 재시도 루프 (LLM 처리 시간 고려하여 30회로 증가)
+        max_retries = 30
+        for i in range(max_retries):
             script, json_script = await get_dialogue(request.consultation_id)
             if script and len(script.strip()) > 0:
                 print(f"[{request.consultation_id}] {i+1}차 시도만에 데이터 확보 성공")
                 break
-            
-            print(f"[{request.consultation_id}] 데이터 대기 중 ({i+1}/10)")
+
+            print(f"[{request.consultation_id}] 데이터 대기 중 ({i+1}/{max_retries})")
             await asyncio.sleep(1)
 
-        # 10초가 지나도 데이터가 없으면 에러 반환
+        # max_retries초가 지나도 데이터가 없으면 에러 반환
         if not script or len(script.strip()) == 0:
             raise HTTPException(status_code=404, detail="상담 데이터를 찾을 수 없습니다. (처리 지연)")
         
