@@ -32,6 +32,27 @@ export default function AfterCallWorkPage() {
   // ⭐ 교육 시뮬레이션 모드 확인
   const isSimulationMode = location.state?.mode === 'simulation' || sessionStorage.getItem('simulationMode') === 'true';
   const themePrimary = isSimulationMode ? '#10B981' : '#0047AB'; // Emerald-500 vs Blue-700
+
+  // ⭐ [v24] 다이렉트콜 여부 및 실제 교육모드 확인 (localStorage.activeCallState에서 읽기)
+  const [callModeInfo] = useState<{ isDirectIncoming: boolean; isActualSimulationMode: boolean }>(() => {
+    try {
+      const activeCallStateStr = localStorage.getItem('activeCallState');
+      if (activeCallStateStr) {
+        const activeCallState = JSON.parse(activeCallStateStr);
+        console.log('📞 [후처리] isDirectIncoming 복원:', activeCallState.isDirectIncoming);
+        console.log('🎓 [후처리] isSimulationMode (실제) 복원:', activeCallState.isSimulationMode);
+        return {
+          isDirectIncoming: activeCallState.isDirectIncoming || false,
+          isActualSimulationMode: activeCallState.isSimulationMode || false
+        };
+      }
+    } catch (error) {
+      console.error('❌ [후처리] activeCallState 파싱 실패:', error);
+    }
+    return { isDirectIncoming: false, isActualSimulationMode: false };
+  });
+
+  const { isDirectIncoming, isActualSimulationMode } = callModeInfo;
   
   // ⭐ Phase 3 튜토리얼 상태
   const [isTutorialActive, setIsTutorialActive] = useState(false);
@@ -766,19 +787,27 @@ export default function AfterCallWorkPage() {
     };
 
     try {
-      // ⭐ Phase A: Mock/Real API 분기
+      // ⭐ [v24] 저장 분기 로직 로그
       console.log(`🎯 데이터 모드: ${USE_MOCK_DATA ? 'Mock' : 'Real'}`);
-      
-      const result = await saveConsultation(acwData);
-      
+      console.log(`📞 콜 타입: ${isDirectIncoming ? '다이렉트콜' : '대기콜'}`);
+      console.log(`🎓 교육 모드 (UI): ${isSimulationMode}`);
+      console.log(`🎓 교육 모드 (실제 저장용): ${isActualSimulationMode}`);
+
+      // ⭐ [v24] isDirectIncoming, isActualSimulationMode 전달
+      // Real DB 저장 조건: Real 모드 + 다이렉트콜 + 실전 모드 (교육 아님)
+      // isActualSimulationMode는 location.state?.mode === 'simulation' 기반 (sessionStorage 아님)
+      const result = await saveConsultation(acwData, isDirectIncoming, isActualSimulationMode);
+
       if (!result.success) {
         throw new Error(result.error || '저장 실패');
       }
 
       console.log('✅ 저장 성공:', result);
 
-      // ⭐ localStorage 완전히 clear (순서 중요!)
-      // 1. 먼저 pendingConsultation 삭제 (자동 저장 useEffect가 다시 실행되지 않도록)
+      // ⭐ [v24] localStorage 완전히 clear (대기콜/다이렉트콜 모두 동일하게 초기화)
+      // 순서 중요! - 자동 저장 useEffect가 다시 실행되지 않도록
+
+      // 1. 먼저 pendingConsultation 삭제
       localStorage.removeItem('pendingConsultation');
 
       // 2. 통화 관련 상태 삭제
@@ -795,10 +824,14 @@ export default function AfterCallWorkPage() {
       localStorage.removeItem('consultationTranscript');
       localStorage.removeItem('useLLMScript');
 
-      // 4. 마지막으로 pendingACW 삭제
+      // 4. ⭐ [v24] RAG 관련 데이터 삭제 (있다면)
+      localStorage.removeItem('ragSessionId');
+      localStorage.removeItem('ragGuidanceScript');
+
+      // 5. 마지막으로 pendingACW 삭제
       localStorage.removeItem('pendingACW');
 
-      console.log('🧹 [후처리 완료] localStorage 전체 초기화 완료');
+      console.log('🧹 [후처리 완료] localStorage 전체 초기화 완료 (대기콜/다이렉트콜 공통)');
 
       // 저장 완료 후 페이지 이동
       setIsSaving(false);

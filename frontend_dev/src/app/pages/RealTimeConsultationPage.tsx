@@ -961,8 +961,8 @@ export default function RealTimeConsultationPage() {
           category: activeScenario.category,
           type: activeScenario.type
         } : null,
-        // 교육 모드 정보
-        isSimulationMode,
+        // 교육 모드 정보 - ⭐ [v24] location.state 기반으로 실제 모드 판별
+        isSimulationMode: location.state?.mode === 'simulation',
         educationType: sessionStorage.getItem('educationType')
       };
       localStorage.setItem('activeCallState', JSON.stringify(activeCallState));
@@ -1655,11 +1655,21 @@ export default function RealTimeConsultationPage() {
     
     // ⭐ 다이렉트 인입 플래그 설정
     setIsDirectIncoming(true);
-    
-    if (isSimulationMode) {
-      console.log('🎓 교육 모드: 다이렉트 콜 시작 (백엔드 연동 대기)');
-    } else {
+
+    // ⭐ [v24] 실전 모드 다이렉트콜: 이전 교육 모드 sessionStorage 정리
+    // location.state?.mode가 'simulation'이 아니면 실전 모드로 간주
+    const isReallySimulationMode = location.state?.mode === 'simulation';
+    if (!isReallySimulationMode) {
+      // 실전 모드인데 sessionStorage에 교육 모드 플래그가 남아있으면 정리
+      if (sessionStorage.getItem('simulationMode') === 'true') {
+        console.log('🧹 [실전 모드] 이전 교육 모드 sessionStorage 정리');
+        sessionStorage.removeItem('simulationMode');
+        sessionStorage.removeItem('educationType');
+        sessionStorage.removeItem('scenarioId');
+      }
       console.log('📞 실제 상담: 다이렉트 인입 (통화 버튼 직접 클릭)');
+    } else {
+      console.log('🎓 교육 모드: 다이렉트 콜 시작 (백엔드 연동 대기)');
     }
     
     // ⭐ localStorage 초기화 (새 통화만)
@@ -1676,7 +1686,10 @@ export default function RealTimeConsultationPage() {
     localStorage.removeItem('consultationTranscript');
     localStorage.removeItem('useLLMScript');
     localStorage.removeItem('pendingACW');
-    console.log('🧹 [새 통화] localStorage 전체 초기화 완료');
+    // ⭐ [v24] RAG 관련 데이터 초기화
+    localStorage.removeItem('ragSessionId');
+    localStorage.removeItem('ragGuidanceScript');
+    console.log('🧹 [새 통화 - 다이렉트콜] localStorage 전체 초기화 완료');
     
     // ⭐ 새 통화 시작 - 복원 플래그 해제
     setIsRestoredCall(false);
@@ -2310,13 +2323,16 @@ export default function RealTimeConsultationPage() {
     localStorage.removeItem('consultationTranscript');
     localStorage.removeItem('useLLMScript');
     localStorage.removeItem('pendingACW');
+    // ⭐ [v24] RAG 관련 데이터 초기화
+    localStorage.removeItem('ragSessionId');
+    localStorage.removeItem('ragGuidanceScript');
 
     // ⭐ 검색 이력 및 검색 문서 초기화
     clearSearchHistory();
     setSearchHistory([]);
     setSearchedDocuments([]);
 
-    console.log('🧹 [새 상담] localStorage 전체 초기화 완료');
+    console.log('🧹 [새 상담 - 대기콜] localStorage 전체 초기화 완료');
 
     // ⭐ 즉시 초기화 (React 배치 업데이트 방지)
     setDisplayedKeywords([]);

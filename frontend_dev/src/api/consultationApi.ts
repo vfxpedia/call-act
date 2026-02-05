@@ -265,28 +265,55 @@ export function loadAfterCallWorkData(): MockAfterCallWorkData {
 
 /**
  * 상담 데이터를 DB에 저장
- * Mock/Real 분기 처리
+ *
+ * ⭐ [v24] 저장 분기 로직:
+ * - Mock 모드 (USE_MOCK_DATA = true): Mock 저장 (DB 저장 안함)
+ * - Real 모드 (USE_MOCK_DATA = false):
+ *   - 교육 모드 (isSimulationMode = true): Mock 저장 (simulation_results는 별도 API에서 처리)
+ *   - 대기콜 (isDirectIncoming = false): Mock 저장 (DB 저장 안함, 세션만 초기화)
+ *   - 다이렉트콜 + 실전 모드: Real DB 저장 (consultations 테이블)
+ *
+ * @param data - 저장할 상담 데이터
+ * @param isDirectIncoming - 다이렉트콜 여부 (true: 다이렉트콜, false: 대기콜/시나리오)
+ * @param isSimulationMode - 교육 모드 여부 (true: 기본교육/우수사례 교육)
  */
 export async function saveConsultation(
-  data: SaveConsultationRequest
+  data: SaveConsultationRequest,
+  isDirectIncoming: boolean = false,
+  isSimulationMode: boolean = false
 ): Promise<ApiResponse> {
-  if (USE_MOCK_DATA) {
-    // Mock: 콘솔 로그 + 1초 대기
-    console.log('🎭 Mock 저장 (실제 API 호출 안 함):');
+  // ⭐ [v24] Mock 저장 조건:
+  // 1. Mock 모드
+  // 2. Real 모드 + 대기콜
+  // 3. Real 모드 + 교육 모드 (기본교육/우수사례 - simulation_results는 별도 API)
+  const shouldUseMockSave = USE_MOCK_DATA || !isDirectIncoming || isSimulationMode;
+
+  if (shouldUseMockSave) {
+    // Mock 저장: 콘솔 로그 + 짧은 대기 (실제 DB 저장 안 함)
+    let reason: string;
+    if (USE_MOCK_DATA) {
+      reason = 'Mock 모드';
+    } else if (isSimulationMode) {
+      reason = '교육 모드 (simulation_results는 별도 저장)';
+    } else {
+      reason = '대기콜 (시나리오 기반)';
+    }
+
+    console.log(`🎭 Mock 저장 - ${reason} (consultations DB 저장 안 함):`);
     console.log('📦 저장할 데이터:', data);
-    
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     return {
       success: true,
-      message: 'Mock 저장 완료',
+      message: `Mock 저장 완료 (${reason})`,
       data: { consultationId: data.consultationId },
     };
   }
 
-  // ✅ Real: FastAPI 호출
+  // ✅ Real DB 저장: 실전 모드 + 다이렉트콜만 해당
   const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
-  console.log('🔗 실제 API 호출: POST /api/v1/consultations');
+  console.log('🔗 [실전 다이렉트콜] 실제 API 호출: POST /api/v1/consultations');
 
   // ⭐ [v24] 백엔드 스키마가 Frontend와 동일하므로 변환 불필요
   // Frontend/Backend 공통: { stepNumber, documentId, title, used, viewCount }
@@ -309,8 +336,8 @@ export async function saveConsultation(
     }
 
     const result = await response.json();
-    console.log('✅ 저장 성공:', result);
-    
+    console.log('✅ [실전 다이렉트콜] DB 저장 성공:', result);
+
     return {
       success: true,
       data: result,
