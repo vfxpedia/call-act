@@ -259,6 +259,7 @@ export default function AfterCallWorkPage() {
         // 2. Select 필드 즉시 로드 (애니메이션 불가능)
         setFormData(prev => ({
           ...prev,
+          status: aiAnalysisData!.status || prev.status,  // ⭐ [v24] status 매핑 추가
           category: aiAnalysisData!.category,
           subcategory: aiAnalysisData!.subcategory,
           handoffDepartment: aiAnalysisData!.handoffDepartment || '없음',
@@ -758,6 +759,15 @@ export default function AfterCallWorkPage() {
     console.log(`📊 후처리 소요 시간: ${acwTimeInSeconds}초 (${Math.floor(acwTimeInSeconds / 60)}분 ${acwTimeInSeconds % 60}초)`);
 
     // PostgreSQL + pgvector에 저장할 데이터 준비
+    // ⭐ [v24] transcript를 JSON 문자열로 변환
+    const transcriptJson = callTranscript.length > 0
+      ? JSON.stringify(callTranscript.map(msg => ({
+          speaker: msg.speaker,
+          message: msg.message,
+          timestamp: msg.timestamp
+        })))
+      : undefined;
+
     const acwData: SaveConsultationRequest = {
       consultationId: pageData.callInfo.id,
       employeeId: localStorage.getItem('employeeId') || 'EMP-001',  // ⭐ Phase A: employeeId 추가
@@ -768,6 +778,7 @@ export default function AfterCallWorkPage() {
       category: formData.category,
       aiSummary: aiSummary,
       memo: memo,
+      transcript: transcriptJson,  // ⭐ [v24] 상담 전문 (화자분리 결과) 추가
       followUpTasks: formData.followUpTasks,
       handoffDepartment: formData.handoffDepartment,
       handoffNotes: formData.handoffNotes,

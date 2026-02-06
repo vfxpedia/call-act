@@ -966,10 +966,12 @@ export default function RealTimeConsultationPage() {
         educationType: sessionStorage.getItem('educationType')
       };
       localStorage.setItem('activeCallState', JSON.stringify(activeCallState));
-    } else {
-      // 통화 종료 시 삭제 (통화 종료 버튼 클릭 시에만)
-      localStorage.removeItem('activeCallState');
     }
+    // ⭐ [v24 버그픽스] isCallActive가 false여도 activeCallState 삭제 안 함
+    // AfterCallWorkPage에서 isDirectIncoming을 읽어야 하므로 저장 완료 후 삭제
+    // else {
+    //   localStorage.removeItem('activeCallState');
+    // }
   }, [isCallActive, callTime, memo, customerInfo, displayedKeywords, incomingKeywords, currentStep, maxReachedStep, consultationStartTime, isDirectIncoming, activeScenario, isSimulationMode, startTimestamp]);
 
   // 메모 자동저장 (5초마다)
@@ -1952,7 +1954,7 @@ export default function RealTimeConsultationPage() {
               referencedDocs.push({
                 stepNumber: stepData.stepNumber,
                 documentId: card.id,
-                title: card.title,
+                title: card.title || card.id || '제목없음',  // 제목 fallback
                 used: true  // 표시된 카드는 모두 사용된 것으로 간주
               });
             }
@@ -1970,7 +1972,7 @@ export default function RealTimeConsultationPage() {
           referencedDocs.push({
             stepNumber: 0, // 검색 문서는 Step 0으로 표시
             documentId: card.id,
-            title: card.title, // 실제 카드 제목 사용
+            title: card.title || card.id || '제목없음', // 제목 fallback
             used: true
           });
         }
@@ -1981,11 +1983,12 @@ export default function RealTimeConsultationPage() {
     if (!activeScenario) {
       // 현재 상황 정보 카드 (상단)
       ragCurrentCards.forEach((ragCard, index) => {
-        if (!referencedDocs.some(doc => doc.documentId === ragCard.id)) {
+        const docId = ragCard.id || `RAG-CURRENT-${index}`;
+        if (!referencedDocs.some(doc => doc.documentId === docId)) {
           referencedDocs.push({
             stepNumber: 0,
-            documentId: ragCard.id,
-            title: ragCard.title,
+            documentId: docId,
+            title: ragCard.title || docId,  // title 없으면 documentId 사용
             used: true
           });
         }
@@ -1993,11 +1996,12 @@ export default function RealTimeConsultationPage() {
 
       // 다음 단계 가이드 카드 (하단)
       ragNextCards.forEach((ragCard, index) => {
-        if (!referencedDocs.some(doc => doc.documentId === ragCard.id)) {
+        const docId = ragCard.id || `RAG-NEXT-${index}`;
+        if (!referencedDocs.some(doc => doc.documentId === docId)) {
           referencedDocs.push({
             stepNumber: 0,
-            documentId: ragCard.id,
-            title: ragCard.title,
+            documentId: docId,
+            title: ragCard.title || docId,  // title 없으면 documentId 사용
             used: true
           });
         }
@@ -2091,10 +2095,11 @@ export default function RealTimeConsultationPage() {
     
     // ⭐ Phase 8-3: 로딩 페이지로 이동
     navigate('/loading', { state: { consultationId, estimatedTime: 5 } });
-    
-    // ⭐ 통화 종료 - activeCallState 삭제
-    localStorage.removeItem('activeCallState');
-    console.log('📞 통화 종료 - activeCallState 삭제');
+
+    // ⭐ [v24 버그픽스] activeCallState는 AfterCallWorkPage에서 저장 완료 후 삭제
+    // 여기서 삭제하면 isDirectIncoming이 false가 되어 Mock 저장으로 빠짐
+    // localStorage.removeItem('activeCallState');
+    console.log('📞 통화 종료 - activeCallState 유지 (AfterCallWorkPage에서 삭제)');
     
     // ⭐ 교육 모드 sessionStorage는 후처리 완료 후 삭제 (LoadingPage와 AfterCallWorkPage에서 읽어야 하므로)
     // sessionStorage 정리는 AfterCallWorkPage의 저장 완료 시점에서 처리

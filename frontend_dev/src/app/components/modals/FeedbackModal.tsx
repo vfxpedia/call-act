@@ -118,7 +118,8 @@ export default function FeedbackModal({
         manualScore,
         thanksScore,
         emotionScore,
-        emotions
+        emotions,
+        feedback: llmEvaluation.feedback  // ⭐ [v24] 피드백 텍스트도 로그
       });
 
       return {
@@ -126,7 +127,8 @@ export default function FeedbackModal({
         customerGratitude: thanksScore,
         emotionTransition: emotionScore,
         emotion: emotions,
-        manualDetails
+        manualDetails,
+        feedback: llmEvaluation.feedback || ''  // ⭐ [v24] LLM 피드백 텍스트 추가
       };
     }
 
@@ -137,7 +139,8 @@ export default function FeedbackModal({
       customerGratitude: mockFeedbackData.customerGratitude,
       emotionTransition: mockFeedbackData.emotionTransition,
       emotion: mockFeedbackData.emotion,
-      manualDetails: mockFeedbackData.manualDetails
+      manualDetails: mockFeedbackData.manualDetails,
+      feedback: ''  // ⭐ [v24] mock에서는 빈 문자열
     };
   }, [llmEvaluation]);
 
@@ -475,12 +478,12 @@ export default function FeedbackModal({
             </div>
           </div>
 
-          {/* 개선 필요 사항 */}
-          {feedbackData.manualDetails.customerCheck < 0 && (
+          {/* 개선 필요 사항 - ⭐ [v24] LLM 피드백 텍스트 표시 */}
+          {(feedbackData.feedback || feedbackData.manualDetails.customerCheck < 0) && (
             <div className="mb-5 p-3 bg-[#FFF9E6] border border-[#FBBC04] rounded-lg">
               <p className="text-sm text-[#666666]">
-                ⚠️ <span className="font-semibold text-[#EA4335]">개선 필요:</span> 고객확인 시 정보 누출 (
-                {feedbackData.manualDetails.customerCheck}점)
+                ⚠️ <span className="font-semibold text-[#EA4335]">개선 필요:</span>{' '}
+                {feedbackData.feedback || `고객확인 시 정보 누출 (${feedbackData.manualDetails.customerCheck}점)`}
               </p>
             </div>
           )}

@@ -24,7 +24,7 @@ class ReferencedDocument(BaseModel):
     """참조 문서 (Frontend 스키마 호환)"""
     stepNumber: Optional[int] = None       # RAG 조회 순서
     documentId: str                        # DOC-123
-    title: str
+    title: Optional[str] = ""              # 제목 (없으면 빈 문자열)
     used: Optional[bool] = False           # 클릭 여부
     viewCount: Optional[int] = 0           # 조회 횟수
 
@@ -360,6 +360,22 @@ async def save_consultation(request: SaveConsultationRequest):
             # 처리 타임라인 JSON
             processing_timeline_json = json.dumps([item.model_dump() for item in request.processingTimeline]) if request.processingTimeline else None
 
+            # ⭐ [v24] transcript 처리: 문자열이면 JSON 배열로 변환
+            transcript_json = None
+            if request.transcript:
+                # 이미 JSON 배열 형식인지 확인
+                if request.transcript.strip().startswith('['):
+                    try:
+                        # 유효한 JSON인지 확인
+                        json.loads(request.transcript)
+                        transcript_json = request.transcript
+                    except json.JSONDecodeError:
+                        # JSON 파싱 실패 시 문자열로 래핑
+                        transcript_json = json.dumps([{"speaker": "all", "text": request.transcript}])
+                else:
+                    # 문자열을 JSON 배열로 변환
+                    transcript_json = json.dumps([{"speaker": "all", "text": request.transcript}])
+
             # 상태 매핑 (한글 → 영문 enum)
             db_status = map_status_to_enum(request.status)
 
@@ -408,7 +424,7 @@ async def save_consultation(request: SaveConsultationRequest):
                     acw_duration,
                     request.aiSummary,
                     request.memo,
-                    request.transcript,
+                    transcript_json,  # ⭐ [v24] JSON 변환된 transcript 사용
                     request.followUpTasks,
                     request.handoffDepartment,
                     request.handoffNotes,
@@ -455,7 +471,7 @@ async def save_consultation(request: SaveConsultationRequest):
                     acw_duration,
                     request.aiSummary,
                     request.memo,
-                    request.transcript,
+                    transcript_json,  # ⭐ [v24] JSON 변환된 transcript 사용
                     request.followUpTasks,
                     request.handoffDepartment,
                     request.handoffNotes,
