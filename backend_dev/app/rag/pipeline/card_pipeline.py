@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 import asyncio
 import os
 import re
 import time
 
-from app.llm.card_generator import generate_detail_cards
+from app.llm.rag_llm.card_generator import generate_detail_cards, build_rule_cards
 from app.rag.cache.card_cache import (
     CARD_CACHE_ENABLED,
     build_card_cache_key,
@@ -19,7 +19,6 @@ from app.rag.postprocess.cards import omit_empty, promote_definition_doc, split_
 from app.rag.postprocess.keywords import collect_query_keywords, extract_query_terms, normalize_text
 from app.rag.postprocess.sections import clean_card_docs
 
-LOG_TIMING = os.getenv("RAG_LOG_TIMING", "1") != "0"
 _GENERIC_QUERY_TERMS = {
     "카드",
     "혜택",
@@ -81,46 +80,20 @@ def _strip_noisy_disclaimer_in_cards(cards: List[Dict[str, Any]]) -> List[Dict[s
     return out
 
 
-def _truncate(text: str, limit: int) -> str:
-    """텍스트를 지정된 길이로 자름"""
-    if not text:
-        return ""
-    if len(text) <= limit:
-        return text
-    return text[:limit].rstrip() + "..."
-
-
-def build_rule_cards(query: str, docs: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str]:
-    """
-    LLM 없이 문서 기반으로 기본 카드를 생성하는 fallback 함수.
-    llm_docs가 비어있을 때 호출됨.
-    """
-    if not docs:
-        return [], ""
-
-    cards: List[Dict[str, Any]] = []
-    for doc in docs:
-        content = doc.get("content") or ""
-        meta = doc.get("metadata") or {}
-        card_id = meta.get("id") or doc.get("id") or ""
-
-        card = {
-            "id": str(card_id),
-            "title": doc.get("title") or meta.get("title") or "",
-            "keywords": [],
-            "content": _truncate(content, 140),
-            "systemPath": "",
-            "requiredChecks": [],
-            "exceptions": [],
-            "regulation": "",
-            "detailContent": content,
-            "time": "",
-            "note": "",
-            "relevanceScore": float(doc.get("score") or 0.0),
-        }
-        cards.append(card)
-
-    return cards, ""
+def _ensure_nullable_fields(cards: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if not cards:
+        return cards
+    out: List[Dict[str, Any]] = []
+    for card in cards:
+        updated = dict(card)
+        content = updated.get("content")
+        full_text = updated.get("fullText")
+        if content in ("", None):
+            updated["content"] = None
+        if full_text in ("", None):
+            updated["fullText"] = None
+        out.append(updated)
+    return out
 
 
 def _filter_card_product_docs(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -158,7 +131,7 @@ def _filter_guide_docs_by_query(docs: List[Dict[str, Any]], query: str) -> Optio
             return filtered
         return None
     filtered = [d for d in guide_docs if _doc_has_any_term(d, hard_terms)]
-    # Drop unrelated benefit docs (e.g. 다자녀) if query doesn't mention them
+    # 쿼리에 없는 혜택 문서 제거 (예: 다자녀)
     q = (query or "").lower()
     if "다자녀" not in q:
         filtered = [
@@ -328,6 +301,7 @@ async def build_card_response(
     cards = [omit_empty(card) for card in cards]
     cards = _strip_phone_in_cards(cards)
     cards = _strip_noisy_disclaimer_in_cards(cards)
+    cards = _ensure_nullable_fields(cards)
     if route_name == "card_info":
         cards = _inject_missing_terms_in_cards(cards, query)
         cards = _ensure_benefit_phrase(cards, query)
@@ -335,10 +309,6 @@ async def build_card_response(
         cards = []
     current_cards, next_cards = split_cards_by_query(cards, query)
     t_post = time.perf_counter()
-
-    if LOG_TIMING:
-        # RAG timing log disabled
-        pass
 
     return {
         "currentSituation": current_cards,
