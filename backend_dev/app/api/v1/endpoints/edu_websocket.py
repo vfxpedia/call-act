@@ -57,7 +57,7 @@ async def call_websocket_endpoint(websocket: WebSocket, consultation_id: str = N
             # --- RAG 실행 ---
             result = await run_rag(
                 text,
-                config=RAGConfig(top_k=4, normalize_keywords=True),
+                config=RAGConfig(top_k=6, normalize_keywords=True, llm_card_top_n=4),
                 session_state=session_state,
             )
                 
