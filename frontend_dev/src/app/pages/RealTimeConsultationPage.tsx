@@ -36,7 +36,7 @@ import { SearchLayer } from '@/app/components/consultation/SearchLayer';
 import { motion, AnimatePresence } from 'motion/react';
 import { handleSearchExecution } from '@/utils/searchLayerHelpers';
 import { useLayerNavigation } from '@/hooks/useLayerNavigation';
-import { useVoiceRecorder, type RAGResponse, type RAGCard } from '../hooks/useVoiceRecoders';
+import { useVoiceRecorder, type RAGResponse, type RAGCard, type AudioChunkData } from '../hooks/useVoiceRecoders';
 import { simulateSearch, getSearchHistory, clearSearchHistory, saveSearchHistory, type SearchHistoryItem } from '@/utils/searchSimulator';
 import { LayerTransitionWrapper } from '@/app/components/consultation/LayerTransitionWrapper';
 
@@ -438,6 +438,8 @@ export default function RealTimeConsultationPage() {
   const simulationSessionIdRef = useRef<string | null>(null); // ⭐ [v25] 시뮬레이션 세션 ID
   const wsConnectedRef = useRef<boolean>(false); // ⭐ [v25] WebSocket 연결 상태 추적
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null); // ⭐ [v25] TTS 오디오 재생용
+  const audioQueueRef = useRef<string[]>([]); // ⭐ [v26] TTS 오디오 청크 큐
+  const isPlayingChunkRef = useRef(false); // ⭐ [v26] 현재 청크 재생 중 여부
 
   const handleSttResult = useCallback((text: string) => {
     console.log('[STT] 음성 인식 결과:', text);
@@ -554,7 +556,38 @@ export default function RealTimeConsultationPage() {
     }
   }, []);
 
-  // ⭐ [v25] AI 고객 응답 수신 핸들러 (교육 모드 TTS)
+  // ⭐ [v26] 오디오 큐 순차 재생 함수
+  const playNextChunk = useCallback(() => {
+    if (isPlayingChunkRef.current || audioQueueRef.current.length === 0) return;
+
+    const nextUrl = audioQueueRef.current.shift()!;
+    isPlayingChunkRef.current = true;
+
+    // 이전 오디오 정지
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      ttsAudioRef.current = null;
+    }
+
+    const audio = new Audio(`http://127.0.0.1:8000${nextUrl}`);
+    ttsAudioRef.current = audio;
+    audio.onended = () => {
+      isPlayingChunkRef.current = false;
+      playNextChunk(); // 다음 청크 재생
+    };
+    audio.onerror = () => {
+      console.error('[TTS] 청크 재생 실패:', nextUrl);
+      isPlayingChunkRef.current = false;
+      playNextChunk(); // 실패해도 다음 청크 시도
+    };
+    audio.play().catch(err => {
+      console.error('[TTS] 재생 시작 실패:', err);
+      isPlayingChunkRef.current = false;
+      playNextChunk();
+    });
+  }, []);
+
+  // ⭐ [v25→v26] AI 고객 응답 수신 핸들러 (텍스트 즉시 표시, 오디오는 청크로 별도 수신)
   const handleCustomerResponse = useCallback((data: { text: string; turn_number: number; audio_url?: string }) => {
     console.log('[교육] AI 고객 응답:', data.text);
 
@@ -575,17 +608,33 @@ export default function RealTimeConsultationPage() {
       timestamp: Math.floor((Date.now() - currentTimestamp) / 1000),
     }]);
 
-    // 3. TTS 오디오 재생
+    // 3. [v26] 오디오 큐 초기화 (새 응답 시작)
+    audioQueueRef.current = [];
+    isPlayingChunkRef.current = false;
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      ttsAudioRef.current = null;
+    }
+
+    // [v25 호환] audio_url이 직접 포함된 경우 (비-스트리밍 fallback)
     if (data.audio_url) {
-      // 이전 오디오 정지
-      if (ttsAudioRef.current) {
-        ttsAudioRef.current.pause();
-        ttsAudioRef.current = null;
-      }
       const audio = new Audio(`http://127.0.0.1:8000${data.audio_url}`);
       ttsAudioRef.current = audio;
       audio.play().catch(err => console.error('[TTS] 재생 실패:', err));
     }
+  }, []);
+
+  // ⭐ [v26] TTS 오디오 청크 수신 핸들러 (문장 단위 스트리밍)
+  const handleAudioChunk = useCallback((data: AudioChunkData) => {
+    console.log(`[TTS] 오디오 청크 수신: ${data.chunk_index + 1}/${data.total_chunks}`);
+    audioQueueRef.current.push(data.audio_url);
+    // 재생 중이 아니면 즉시 시작
+    playNextChunk();
+  }, [playNextChunk]);
+
+  // ⭐ [v26] TTS 스트리밍 완료 핸들러
+  const handleAudioDone = useCallback(() => {
+    console.log('[TTS] 스트리밍 완료, 남은 큐:', audioQueueRef.current.length);
   }, []);
 
   // ⭐ [v25] sendMessage를 ref로 보관 (hook 반환값의 순환참조 방지)
@@ -611,6 +660,8 @@ export default function RealTimeConsultationPage() {
     onRagResult: handleRagResult,
     onSttResult: handleSttResult,  // ⭐ [v24] STT 결과 콜백 연결
     onCustomerResponse: handleCustomerResponse,  // ⭐ [v25] AI 고객 응답 (TTS)
+    onAudioChunk: handleAudioChunk,  // ⭐ [v26] TTS 오디오 청크 (문장 단위 스트리밍)
+    onAudioDone: handleAudioDone,  // ⭐ [v26] TTS 스트리밍 완료
     onConnected: (wsSessionId) => {
       console.log('[WebSocket] 교육 WebSocket 연결 확인:', wsSessionId);
       wsConnectedRef.current = true;
@@ -2164,11 +2215,13 @@ export default function RealTimeConsultationPage() {
     }
 
     stopRecording(); // ⭐ 웹소켓 녹음 종료
-    // ⭐ [v25] TTS 오디오 정지 + 시뮬레이션 상태 초기화
+    // ⭐ [v25→v26] TTS 오디오 정지 + 오디오 큐 초기화 + 시뮬레이션 상태 초기화
     if (ttsAudioRef.current) {
       ttsAudioRef.current.pause();
       ttsAudioRef.current = null;
     }
+    audioQueueRef.current = [];
+    isPlayingChunkRef.current = false;
     wsConnectedRef.current = false;
     simulationSessionIdRef.current = null;
     setIsCallActive(false);

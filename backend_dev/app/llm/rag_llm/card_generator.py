@@ -74,9 +74,29 @@ _TABLE_DOC_TYPE_MAP = {
     "service_guide_documents": "guide",
 }
 
+# [v26] DB document_type → 화면 documentType 매핑
+_DB_DOC_TYPE_MAP = {
+    "terms": "terms",
+    "service_guide": "guide",
+    "usage_guide": "guide",
+    "faq": "general",
+}
 
-def _table_to_doc_type(table: Optional[str]) -> str:
-    return _TABLE_DOC_TYPE_MAP.get(table or "", "general")
+
+def _table_to_doc_type(table: Optional[str], metadata: Optional[Dict[str, Any]] = None) -> str:
+    """DB 테이블 + document_type → 화면 documentType 5종 매핑"""
+    actual_table = table or ""
+    # card_products → product-spec (고정)
+    if actual_table in ("card_tbl", "card_products"):
+        return "product-spec"
+    # service_guide_documents → document_type 기반 매핑
+    if actual_table in ("guide_tbl", "service_guide_documents"):
+        meta = metadata or {}
+        db_doc_type = meta.get("category1") or meta.get("document_type") or ""
+        if db_doc_type and db_doc_type in _DB_DOC_TYPE_MAP:
+            return _DB_DOC_TYPE_MAP[db_doc_type]
+        return "guide"  # 기본값
+    return "general"
 
 
 def _doc_to_card_base(doc: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -109,7 +129,7 @@ def _doc_to_card_base(doc: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         "fullText": raw_content.strip() or None,
         "time": structured.get("time") or meta.get("time") or "",
         "note": structured.get("note") or meta.get("note") or "",
-        "documentType": meta.get("documentType") or _table_to_doc_type(doc.get("table")) or "general",
+        "documentType": meta.get("documentType") or _table_to_doc_type(doc.get("table"), meta) or "general",
     }
 
 

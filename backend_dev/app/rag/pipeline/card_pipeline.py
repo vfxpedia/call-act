@@ -311,6 +311,13 @@ async def build_card_response(
     query_keywords = collect_query_keywords(query, routing, config.normalize_keywords)
     if not cards:
         cards = []
+    # [v26] 각 카드에 원본 doc score 첨부 (프론트엔드 relevanceScore용)
+    for idx, card in enumerate(cards):
+        if idx < len(docs):
+            raw_score = docs[idx].get("score")
+            card["_score"] = float(raw_score) if isinstance(raw_score, (int, float)) else 0.0
+        else:
+            card["_score"] = 0.0
     for card in cards:
         card["keywords"] = query_keywords
     cards = [omit_empty(card) for card in cards]

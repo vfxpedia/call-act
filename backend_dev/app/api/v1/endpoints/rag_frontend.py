@@ -1,3 +1,5 @@
+import time
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -40,6 +42,7 @@ def _to_front_card(card):
         "time": card.get("time") or "",
         "note": card.get("note") or "",
         "documentType": document_type,
+        "relevanceScore": min(100, round(float(card.get("_score") or 0) * 100, 1)),
     }
 
 
@@ -52,18 +55,21 @@ class RAGFrontendRequest(BaseModel):
 @router.post("/")
 async def rag_frontend(request: RAGFrontendRequest):
     try:
+        t0 = time.perf_counter()
         cfg_kwargs = {"top_k": request.top_k or 4}
         if request.enable_consult_search is not None:
             cfg_kwargs["enable_consult_search"] = request.enable_consult_search
         result = await run_rag(request.query, config=RAGConfig(**cfg_kwargs))
         current_cards = [_to_front_card(card) for card in (result.get("currentSituation") or [])]
         next_cards = [_to_front_card(card) for card in (result.get("nextStep") or [])]
+        search_time_ms = round((time.perf_counter() - t0) * 1000)
         return {
             "guidanceScript": result.get("guidanceScript", ""),
             "currentSituation": current_cards,
             "nextStep": next_cards,
             "currentSituationCards": current_cards,
             "nextStepCards": next_cards,
+            "searchTime": search_time_ms,
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

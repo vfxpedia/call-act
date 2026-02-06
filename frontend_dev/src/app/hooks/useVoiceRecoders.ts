@@ -37,9 +37,16 @@ export interface CustomerResponseData {
   audio_url?: string;
 }
 
+// ⭐ [v26] 오디오 청크 타입 (TTS 스트리밍)
+export interface AudioChunkData {
+  audio_url: string;
+  chunk_index: number;
+  total_chunks: number;
+}
+
 export interface WebSocketMessage {
-  type: 'rag' | 'session' | 'stt' | 'connected' | 'customer_response';
-  data: RAGResponse | string | CustomerResponseData;
+  type: 'rag' | 'session' | 'stt' | 'connected' | 'customer_response' | 'audio_chunk' | 'audio_done';
+  data: RAGResponse | string | CustomerResponseData | AudioChunkData;
   text?: string;  // STT 결과 텍스트
   ws_session_id?: string;  // connected 메시지용
 }
@@ -49,6 +56,8 @@ interface UseVoiceRecorderOptions {
   onSessionId?: (sessionId: string) => void;
   onSttResult?: (text: string) => void;  // ⭐ [v24] STT 결과 콜백
   onCustomerResponse?: (data: CustomerResponseData) => void;  // ⭐ [v25] AI 고객 응답 콜백 (TTS)
+  onAudioChunk?: (data: AudioChunkData) => void;  // ⭐ [v26] TTS 오디오 청크 콜백
+  onAudioDone?: () => void;  // ⭐ [v26] TTS 스트리밍 완료 콜백
   onConnected?: (wsSessionId: string) => void;  // ⭐ [v25] WebSocket 연결 완료 콜백
   wsEndpoint?: string;  // ⭐ [v25] WebSocket 엔드포인트 (교육: ws/edu, 실전: ws/call)
 }
@@ -231,6 +240,18 @@ export const useVoiceRecorder = (options?: UseVoiceRecorderOptions) => {
           if (message.type === 'customer_response' && message.data) {
             console.log('[WebSocket] AI 고객 응답 수신:', message.data);
             optionsRef.current?.onCustomerResponse?.(message.data as CustomerResponseData);
+          }
+
+          // ⭐ [v26] TTS 오디오 청크 메시지 (문장 단위 스트리밍)
+          if (message.type === 'audio_chunk' && message.data) {
+            console.log('[WebSocket] TTS 오디오 청크:', message.data);
+            optionsRef.current?.onAudioChunk?.(message.data as AudioChunkData);
+          }
+
+          // ⭐ [v26] TTS 스트리밍 완료
+          if (message.type === 'audio_done') {
+            console.log('[WebSocket] TTS 스트리밍 완료');
+            optionsRef.current?.onAudioDone?.();
           }
         } catch (err) {
           console.error('[WebSocket] 메시지 파싱 에러:', err);

@@ -11,6 +11,7 @@ from starlette.websockets import WebSocket, WebSocketState
 
 from app.llm.education.tts_speaker import (
     process_agent_input,
+    process_agent_input_streaming,
     get_session_info,
     end_conversation,
 )
@@ -80,24 +81,42 @@ async def handle_agent_message(
         return  # 시뮬레이션 미초기화 시 무시
 
     try:
-        # ⭐ [v25] sLLM 응답 + TTS 생성 (동기 함수를 스레드 풀에서 실행하여 event loop 차단 방지)
-        result = await asyncio.to_thread(
-            process_agent_input,
-            session_id=simulation_session_id,
-            agent_message=text,
-            input_mode=input_mode
-        )
+        # ⭐ [v26] 문장 단위 스트리밍 TTS: 텍스트 즉시 전송 → 오디오 청크 순차 전송
+        def _run_streaming():
+            return list(process_agent_input_streaming(
+                session_id=simulation_session_id,
+                agent_message=text,
+                input_mode=input_mode
+            ))
 
-        # customer_response 전송
-        if websocket.client_state == WebSocketState.CONNECTED:
-            await websocket.send_json({
-                "type": "customer_response",
-                "data": {
-                    "text": result["customer_response"],
-                    "turn_number": result["turn_number"],
-                    "audio_url": result.get("audio_url")
-                }
-            })
+        chunks = await asyncio.to_thread(_run_streaming)
+
+        for chunk in chunks:
+            if websocket.client_state != WebSocketState.CONNECTED:
+                break
+
+            if chunk["type"] == "text":
+                # 텍스트 즉시 전송 (프론트엔드에서 즉시 표시)
+                await websocket.send_json({
+                    "type": "customer_response",
+                    "data": {
+                        "text": chunk["customer_response"],
+                        "turn_number": chunk["turn_number"],
+                        "audio_url": None  # 오디오는 별도 청크로 전송
+                    }
+                })
+            elif chunk["type"] == "audio_chunk":
+                # 오디오 청크 전송 (프론트엔드에서 순차 재생)
+                await websocket.send_json({
+                    "type": "audio_chunk",
+                    "data": {
+                        "audio_url": chunk["audio_url"],
+                        "chunk_index": chunk["chunk_index"],
+                        "total_chunks": chunk["total_chunks"]
+                    }
+                })
+            elif chunk["type"] == "audio_done":
+                await websocket.send_json({"type": "audio_done"})
 
     except Exception as e:
         print(f"[{ws_session_id}] sLLM 처리 중 에러: {e}")

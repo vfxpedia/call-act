@@ -1,5 +1,6 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Generator, List, Optional
 from datetime import datetime
+import re
 import uuid
 import json
 
@@ -163,6 +164,114 @@ def process_agent_input(
         "turn_number": session.turn_count,
         "audio_url": audio_url
     }
+
+
+def _split_sentences(text: str) -> List[str]:
+    """텍스트를 문장 단위로 분할"""
+    # 한국어 문장 종결 부호 기준 분할
+    parts = re.split(r'(?<=[.!?。])\s*', text.strip())
+    sentences = [s.strip() for s in parts if s.strip()]
+    # 분할 결과가 없으면 원문 그대로
+    if not sentences:
+        return [text.strip()] if text.strip() else []
+    return sentences
+
+
+def process_agent_input_streaming(
+    session_id: str,
+    agent_message: str,
+    input_mode: str = "text"
+) -> Generator[Dict[str, Any], None, None]:
+    """
+    [v26] 문장 단위 스트리밍 TTS 생성
+
+    LLM 응답을 문장 단위로 분할하여 각 문장의 TTS를 순차 생성.
+    첫 번째 yield: 전체 텍스트 응답 (audio 없음)
+    이후 yield: 각 문장의 audio_url (chunk)
+
+    Yields:
+        {"type": "text", "customer_response": str, "turn_number": int}
+        {"type": "audio_chunk", "audio_url": str, "chunk_index": int, "total_chunks": int}
+        {"type": "audio_done"}
+    """
+    session = _conversation_sessions.get(session_id)
+    if not session:
+        raise ValueError(f"세션을 찾을 수 없습니다: {session_id}")
+
+    # 대화 히스토리에 상담원 메시지 추가
+    session.conversation_history.append({
+        "role": "agent",
+        "content": agent_message,
+        "timestamp": datetime.now().isoformat()
+    })
+
+    # LLM 고객 응답 생성
+    conversation_context = _build_conversation_context(session)
+    print(f"[Conversation] LLM 요청 시작 (세션: {session_id})")
+    customer_response = generate_text(
+        prompt=agent_message,
+        system_prompt=conversation_context,
+        temperature=0.3,
+        max_tokens=200
+    )
+
+    if not customer_response:
+        customer_response = "죄송합니다, 잘 이해하지 못했습니다. 다시 말씀해주시겠어요?"
+
+    # 대화 히스토리에 고객 응답 추가
+    session.conversation_history.append({
+        "role": "customer",
+        "content": customer_response,
+        "timestamp": datetime.now().isoformat()
+    })
+    session.turn_count += 1
+
+    # 1. 텍스트 응답 즉시 전달
+    yield {
+        "type": "text",
+        "customer_response": customer_response,
+        "turn_number": session.turn_count
+    }
+
+    # 2. 문장 단위 TTS 스트리밍
+    sentences = _split_sentences(customer_response)
+    total_chunks = len(sentences)
+    print(f"[Conversation] TTS 스트리밍: {total_chunks}개 문장")
+
+    try:
+        from app.llm.education.tts_engine import generate_speech
+
+        voice_config = session.customer_profile.get("communication_style", {})
+        output_dir = f"app/llm/education/tts_output/{session_id}"
+
+        for idx, sentence in enumerate(sentences):
+            if not sentence.strip():
+                continue
+            audio_filename = f"response_{session.turn_count:03d}_chunk{idx:02d}.mp3"
+            audio_path = f"{output_dir}/{audio_filename}"
+
+            success = generate_speech(
+                text=sentence,
+                voice_config=voice_config,
+                output_path=audio_path
+            )
+
+            if success:
+                audio_url = f"/static/tts_output/{session_id}/{audio_filename}"
+                yield {
+                    "type": "audio_chunk",
+                    "audio_url": audio_url,
+                    "chunk_index": idx,
+                    "total_chunks": total_chunks
+                }
+                print(f"[Conversation] TTS 청크 {idx+1}/{total_chunks} 완료")
+
+    except ImportError:
+        print("[Conversation] TTS 엔진을 사용할 수 없습니다")
+    except Exception as e:
+        print(f"[Conversation] TTS 스트리밍 중 오류: {e}")
+
+    yield {"type": "audio_done"}
 
 
 def _build_conversation_context(session: ConversationSession) -> str:
