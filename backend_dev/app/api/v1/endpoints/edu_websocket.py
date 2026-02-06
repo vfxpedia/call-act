@@ -39,8 +39,12 @@ async def call_websocket_endpoint(websocket: WebSocket, consultation_id: str = N
     async def on_transcription_result(text: str):
         if not text.strip():
             return
-        
+
         print(f"[{session_id}] STT 원문 : {text}")
+
+        # ⭐ [v25] STT 결과를 프론트엔드로 전송 (call_websocket과 동일)
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.send_json({"type": "stt", "text": text})
 
         # --- STT 텍스트 적재 ---
         await diarizer_manager.add_fragment(text, DIAR_SYSTEM_PROMPT)
