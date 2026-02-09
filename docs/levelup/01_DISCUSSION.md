@@ -673,3 +673,58 @@ ADD COLUMN related_document_type VARCHAR(50);
 | 포인트/혜택 | → 포인트/혜택 | 포인트/혜택 (340건) | ✅ |
 | 한도증액 | → 한도 | 한도 (576건) | ✅ |
 | 연체문의 (미사용) | → 수수료/연체 | 수수료/연체 | ✅ 매핑 추가됨 |
+
+---
+
+## [Frontend] Phase C 작업 결과 (2026-02-10 05:30)
+
+### C-F4: FeedbackModal 교육 모드 점수 분기 ✅
+
+**변경 파일**:
+- `frontend/src/data/feedbackRules.ts` - 교육 모드 유사도 점수 체계 추가
+- `frontend/src/app/components/modals/FeedbackModal.tsx` - 3가지 모드 분기 렌더링
+- `frontend/src/app/pages/AfterCallWorkPage.tsx` - educationType prop 전달
+
+**점수 체계 분기**:
+
+| 항목 | 실전 상담 | 기본 시나리오 교육 | 우수 사례 교육 |
+|------|----------|------------------|--------------|
+| 매뉴얼 준수 | 50점 | 50점 | 50점 |
+| 고객 감사 | 10점 | - | - |
+| 감정 전환 | 20점 | - | - |
+| 응대 유사도 | - | **30점** | **30점** |
+| 후처리 시간 | 20점 | 20점 | 20점 |
+| **소계** | **100점** | **100점** | **100점** |
+| 모방 유사도 | - | - | **별도 100점** (등급 S/A/B/C/D) |
+
+**UI 차이점**:
+- 헤더 색상: 실전=파란색, 교육=초록색
+- 감정 변화 섹션: 교육 모드에서 제거 (AI에게 감정 없음)
+- 우수 사례: 모방 유사도 카드 + 등급 배지 표시
+
+### C-F5: AfterCallWorkPage 채팅 등장 애니메이션 ✅
+
+**변경**: 상담 전문 채팅 메시지에 순차적 fade-in + slide-up 애니메이션 적용
+- CSS `@keyframes chatBubbleIn` (opacity 0→1, translateY 8px→0)
+- 메시지당 0.06초 딜레이, 최대 2초 (대량 메시지 대비)
+
+### C-F6: Dashboard → SimulationPage 연결 ✅
+
+**변경 파일**:
+- `frontend/src/data/mock/simulations.mock.ts` - `scenarioId` 필드 추가 (SIM-001~004)
+- `frontend/src/app/pages/DashboardPage.tsx` - 카드/버튼 onClick 핸들러 추가
+
+**동작**:
+- 카드 클릭 → SimulationPage 이동
+- "시작" 버튼 클릭 → 바로 시뮬레이션 시작 (sessionStorage 설정 + /consultation/live 이동)
+
+### Frontend Phase C 상태
+
+| # | 작업 | 상태 |
+|---|------|------|
+| C-F1 | FAQ 관련문서 실 ID 연결 확인 | ⏳ (E2E 테스트 필요) |
+| C-F2 | RAG 카드에 sourceTable 활용 | ⏳ (Backend C-B1 후) |
+| C-F3 | 문서 상세 조회 API 연동 | ⏳ (선택) |
+| C-F4 | FeedbackModal 교육 모드 점수 분기 | ✅ |
+| C-F5 | ACW 채팅 등장 애니메이션 | ✅ |
+| C-F6 | Dashboard → SimulationPage 연결 | ✅ |
