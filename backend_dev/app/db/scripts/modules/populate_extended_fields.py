@@ -492,9 +492,9 @@ def generate_referenced_documents(category_main: str, rng, conn: psycopg2_connec
 
         docs.append({
             "step_number": i + 1,
-            "documentId": real_id,
+            "doc_id": real_id,
+            "doc_type": doc_type,
             "sourceTable": source_table,
-            "documentType": doc_type,
             "title": real_title,
             "used": rng.choice([True, True, False])
         })

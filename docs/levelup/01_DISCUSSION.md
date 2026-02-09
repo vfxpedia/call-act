@@ -1,7 +1,7 @@
 # 01 단계: 3팀 협업 논의 사항
 
 > **생성**: 2026-02-10 00:15
-> **마지막 수정**: 2026-02-10 04:15 (DB)
+> **마지막 수정**: 2026-02-10 06:00 (DB)
 > **참여**: DB(D), Backend(B), Frontend(F)
 
 ---
@@ -728,3 +728,72 @@ ADD COLUMN related_document_type VARCHAR(50);
 | C-F4 | FeedbackModal 교육 모드 점수 분기 | ✅ |
 | C-F5 | ACW 채팅 등장 애니메이션 | ✅ |
 | C-F6 | Dashboard → SimulationPage 연결 | ✅ |
+
+---
+
+## [DB] 전체 시스템 종합 진단 (2026-02-10 06:00)
+
+> 원점 재검토: "검색이 올바른 결과를 주는가? 문서가 제대로 표시되는가? UX가 서비스 수준인가?"
+
+### 진단 1: 키워드 검색 품질
+
+| 테이블 | 키워드 보유율 | 검색 동작 |
+|--------|-------------|----------|
+| service_guide_documents | 100% (1,273건) | ✅ 정상 |
+| card_products | 100% (398건) | ✅ 정상 |
+| consultation_documents | 100% (6,533건) | ✅ 벡터검색 정상 |
+
+**발견된 문제:**
+- **키워드 정규화 불일치** (20쌍): "자동이체"↔"자동 이체", "부가서비스"↔"부가 서비스" 등 띄어쓰기 차이로 누락 가능
+- **테이블 간 어휘 교집합 30개뿐**: card_products(65종)과 service_guide(1,757종) 키워드가 거의 겹치지 않음
+- → **DB 조치 필요**: 키워드 띄어쓰기 정규화 스크립트 실행
+
+### 진단 2: 문서 구조/내용 품질
+
+| 문제 | 심각도 | 건수 | 담당 |
+|------|--------|------|------|
+| FAQ 19건 제목 없음 (Samsung plumb_*) | HIGH | 19/107 | **DB** |
+| card_products main_benefits 82%가 전화번호로 시작 | HIGH | 328/398 | **DB (전처리)** |
+| notices 51/53건 end_date 만료 | HIGH | 51/53 | **DB** |
+| card_products 65% 연회비 NULL | MEDIUM | 261/398 | DB |
+| terms 문서 1건 content="없음" (2자) | LOW | 1건 | 무시 가능 |
+
+### 진단 3: 프론트엔드 연동 문제 (→ Frontend/Backend 공유)
+
+| # | 문제 | 심각도 | 담당 |
+|---|------|--------|------|
+| **F-1** | `referenced_documents` 필드명 불일치: DB=`documentId`, 프론트=`doc_id` → 참조문서 클릭 시 빈 모달 | **CRITICAL** | **Frontend** (consultationApi.ts:422 인터페이스 수정) 또는 **DB** (필드명 doc_id로 변경) |
+| **F-2** | `frontend_dev` DocumentDetailModal에 `documentData` prop 없음 → Real DB에서 문서 모달 안 열림 | **HIGH** | **Frontend** (frontend_dev를 frontend에 맞춰 업데이트) |
+| **F-3** | SimulationPage가 백엔드 API 미호출 → DB best practice 4건 사용 안됨 | **MEDIUM** | **Frontend** (API 연동) 또는 **Backend** (best_practice API) |
+| **F-4** | DashboardPage FAQ 모달에 mock detailData 고정 전달 → DB FAQ ID 불일치 시 빈 내용 | **MEDIUM** | **Frontend** |
+| **F-5** | satisfaction_score `0`일 때 `\|\|` 연산자가 falsy 처리 → 5점으로 표시 | **LOW** | **Frontend** (`??` 연산자로 변경) |
+
+### 진단 4: 거시적 누락 사항
+
+| 관점 | 발견 |
+|------|------|
+| card_products.main_benefits | 원본 데이터가 고객센터 전화번호로 시작 → 전처리에서 본문 추출 정리 필요 |
+| frontend_dev vs frontend 괴리 | frontend_dev가 크게 뒤처짐 (documentData prop, empty state 등) |
+| 검색 자동완성 | 항상 mock 기반 → real DB 인기 키워드 반영 필요 |
+| notices 날짜 | 재적재 시 현재 날짜 기준으로 end_date 생성 필요 |
+
+### 합의 필요 사항 (3팀)
+
+> **결정 4: referenced_documents 필드명 통일**
+>
+> DB가 `documentId`로 저장하고 있는데, 프론트엔드 인터페이스는 `doc_id`를 기대.
+> - **옵션 A**: DB 쪽에서 `doc_id`로 변경 (DB 담당)
+> - **옵션 B**: 프론트엔드에서 `documentId`를 읽도록 수정 (Frontend 담당)
+> - **옵션 C**: Backend API에서 변환 레이어 추가 (Backend 담당)
+>
+> → 가장 빠른 방법은 **옵션 A** (DB 일괄 UPDATE) + populate_extended_fields.py 수정
+
+### DB 즉시 조치 가능 항목
+
+| # | 작업 | 예상 영향 |
+|---|------|----------|
+| D-7 | 키워드 띄어쓰기 정규화 (20쌍) | 검색 누락 방지 |
+| D-8 | FAQ 19건 제목 채우기 (content에서 추출) | FAQ 목록 빈 줄 해결 |
+| D-9 | notices end_date를 현재+30일로 갱신 | 공지사항 정상 표시 |
+| D-10 | referenced_documents 필드명 `documentId`→`doc_id` (합의 시) | 참조문서 클릭 정상화 |
+| D-11 | card_products main_benefits 전처리 (전화번호 제거) | 카드 혜택 정상 표시 |
