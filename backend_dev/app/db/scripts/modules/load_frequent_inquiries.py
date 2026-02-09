@@ -12,29 +12,31 @@ from . import BATCH_SIZE, check_table_has_data
 
 
 # 카테고리별 상세 콘텐츠 및 관련 문서 매핑
+# 키: consultations.category_raw 실제 값과 정확히 일치해야 함
 CATEGORY_CONTENT_MAP = {
-    "청구문의/청구서": {
-        "keyword": "청구서 확인",
-        "question": "청구서를 확인하고 싶어요.",
-        "content": """청구서 확인 및 청구 관련 안내입니다.
+    "선결제/즉시출금": {
+        "keyword": "선결제/즉시출금",
+        "question": "선결제(즉시출금)를 하고 싶어요.",
+        "content": """선결제(즉시출금) 이용 방법을 안내드립니다.
 
-1. 청구서 확인 방법
-   - 앱에서 '청구서' 메뉴에서 확인 가능
-   - 이메일/SMS로 발송된 청구서 확인
-   - 고객센터(1588-1234) 전화 문의
+1. 선결제 방법
+   - 앱에서 '즉시출금' 또는 '선결제' 메뉴 선택
+   - 결제 금액 입력 후 등록된 결제 계좌에서 즉시 출금
+   - 출금 후 가용 한도 즉시 복원
 
-2. 청구 금액 이상 시
-   - 거래 내역과 청구 금액 대조
-   - 이의 제기는 청구일로부터 14일 이내
-   - 고객센터에서 상세 내역 안내
+2. 선결제 가능 시간
+   - 평일/주말 24시간 이용 가능
+   - 은행 점검 시간(23:30~00:30) 제외
 
-3. 청구서 재발송
-   - 앱에서 재발송 요청 가능
-   - 이메일/우편 선택 가능""",
-        "related_document_id": "billing-1-1-1",
-        "related_document_title": "청구서 확인 안내",
+3. 유의사항
+   - 선결제 금액은 결제 계좌에서 즉시 출금
+   - 출금 후 취소 불가, 다음 청구 시 차감 반영""",
+        "related_document_id": "카드대금 납부_merged",
+        "related_document_title": "카드대금 납부",
         "related_document_regulation": "여신전문금융업법 제15조",
-        "related_document_summary": "청구서 확인 방법과 청구 금액 이의 제기 절차를 안내합니다."
+        "related_document_summary": "카드대금 납부 방법, 결제일 안내 및 즉시출금 절차를 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
     },
     "이용내역 안내": {
         "keyword": "이용내역",
@@ -55,20 +57,21 @@ CATEGORY_CONTENT_MAP = {
    - 결제 즉시 SMS/푸시 알림
    - 일일/주간/월간 이용 리포트
    - 특정 금액 이상 거래 알림""",
-        "related_document_id": "usage-1-1-1",
-        "related_document_title": "이용내역 조회 서비스",
+        "related_document_id": "신용카드_활용법_merged",
+        "related_document_title": "신용카드 활용법",
         "related_document_regulation": "여신전문금융업법 제14조",
-        "related_document_summary": "실시간 이용내역 조회 및 알림 서비스를 안내합니다."
+        "related_document_summary": "신용카드 이용내역 조회, 명세서 확인 및 활용 방법을 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
     },
-    "한도관련 문의/처리": {
-        "keyword": "한도 조회/변경",
-        "question": "신용한도를 확인하거나 변경하고 싶어요.",
-        "content": """신용한도 조회 및 변경 방법을 안내드립니다.
+    "한도상향 접수/처리": {
+        "keyword": "한도 증액",
+        "question": "신용한도를 올리고 싶어요.",
+        "content": """신용한도 증액 신청 방법을 안내드립니다.
 
 1. 한도 조회
    - 앱에서 '한도 관리' 메뉴 선택
    - 총 한도, 사용 한도, 가용 한도 확인
-   - 일시불/할부 한도 별도 확인
 
 2. 한도 증액 신청
    - 앱에서 '한도 증액 신청' 선택
@@ -79,12 +82,14 @@ CATEGORY_CONTENT_MAP = {
    - 일시적 증액 (최대 7일)
    - 앱에서 즉시 신청 가능
    - 증액 한도: 기존 한도의 30%까지""",
-        "related_document_id": "limit-1-1-1",
-        "related_document_title": "신용한도 관리",
+        "related_document_id": "카드상품별_거래조건_이자율__수수료_등__merged",
+        "related_document_title": "카드상품별 거래조건(이자율, 수수료 등)",
         "related_document_regulation": "여신전문금융업법 제6조",
-        "related_document_summary": "신용한도 조회, 증액 신청, 임시 증액 서비스를 안내합니다."
+        "related_document_summary": "카드 한도, 이자율, 수수료 등 거래조건을 상세히 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
     },
-    "분실/도난 신청/처리": {
+    "분실/도난 신청/해제": {
         "keyword": "카드 분실",
         "question": "카드를 분실했어요. 어떻게 해야 하나요?",
         "content": """카드 분실 시 즉시 처리 방법을 안내드립니다.
@@ -101,33 +106,150 @@ CATEGORY_CONTENT_MAP = {
 3. 부정 사용 보상
    - 분실 신고 후 부정 사용 전액 보상
    - 신고 전 72시간 내 거래 보험 처리 가능""",
-        "related_document_id": "card-1-1-1",
-        "related_document_title": "카드 분실 신고",
+        "related_document_id": "카드분실_도난_관련피해_예방_및_대응방법_merged",
+        "related_document_title": "카드분실·도난 관련 피해 예방 및 대응방법",
         "related_document_regulation": "여신전문금융업법 제16조",
-        "related_document_summary": "카드 분실 시 즉시 정지 및 재발급 절차를 안내합니다."
+        "related_document_summary": "카드 분실·도난 시 피해 예방 및 즉시 대응 절차를 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
     },
-    "결제방식 안내": {
-        "keyword": "결제방식 변경",
-        "question": "결제 방식을 변경하고 싶어요.",
-        "content": """결제 방식 변경 안내입니다.
+    "결제대금 안내": {
+        "keyword": "결제대금 확인",
+        "question": "이번 달 결제대금을 확인하고 싶어요.",
+        "content": """결제대금 조회 및 안내입니다.
 
-1. 일시불/할부 변경
-   - 결제 후 할부 전환 가능 (결제일 전까지)
-   - 앱에서 '할부 전환' 메뉴 선택
-   - 2~12개월 할부 선택
+1. 결제대금 확인
+   - 앱에서 '청구/결제' 메뉴 선택
+   - 이번 달 결제 예정 금액 확인
+   - 결제일, 결제 계좌 정보 확인
 
-2. 자동이체 설정
-   - 결제 계좌 등록/변경
-   - 결제일 변경 (매월 1일, 15일, 25일)
-   - 자동이체 실패 시 재출금
+2. 결제일 변경
+   - 매월 1일, 15일, 25일 중 선택
+   - 앱 또는 고객센터에서 변경 가능
 
-3. 결제 수단 변경
-   - 계좌 자동이체 ↔ 가상계좌 입금
-   - 결제 계좌 변경 시 1-2일 소요""",
-        "related_document_id": "payment-1-1-1",
-        "related_document_title": "결제방식 안내",
+3. 결제 금액 이의 신청
+   - 청구일로부터 14일 이내 이의 제기
+   - 고객센터에서 상세 내역 안내""",
+        "related_document_id": "카드대금 납부_merged",
+        "related_document_title": "카드대금 납부",
+        "related_document_regulation": "여신전문금융업법 제15조",
+        "related_document_summary": "카드대금 납부 방법, 결제일 안내 및 청구 관련 절차를 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
+    },
+    "승인취소/매출취소 안내": {
+        "keyword": "승인취소",
+        "question": "카드 승인을 취소하고 싶어요.",
+        "content": """카드 승인취소 및 매출취소 안내입니다.
+
+1. 승인취소
+   - 결제 당일 가맹점에서 취소 요청
+   - 취소 후 즉시 가용 한도 복원
+
+2. 매출취소 (결제일 이후)
+   - 가맹점 또는 고객센터를 통해 취소
+   - 취소 후 3~5 영업일 내 환불 처리
+
+3. 온라인 결제 취소
+   - 해당 쇼핑몰에서 취소 신청
+   - PG사 처리 기간에 따라 2~7일 소요""",
+        "related_document_id": "구매 취소_merged",
+        "related_document_title": "구매 취소",
+        "related_document_regulation": "여신전문금융업법 제19조",
+        "related_document_summary": "카드 결제 승인 취소 및 환불 처리 절차를 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
+    },
+    "이벤트 안내": {
+        "keyword": "이벤트/혜택",
+        "question": "현재 진행 중인 이벤트를 알고 싶어요.",
+        "content": """현재 진행 중인 카드 이벤트 및 혜택 안내입니다.
+
+1. 포인트 적립 이벤트
+   - 특정 가맹점 추가 적립
+   - 월별 프로모션 이벤트
+
+2. 마일리지 전환
+   - 항공사 마일리지 전환 가능
+   - 전환 비율 및 수수료 확인
+
+3. 혜택 조회
+   - 앱에서 '이벤트/혜택' 메뉴 확인
+   - 카드별 맞춤 혜택 안내""",
+        "related_document_id": "신용카드_포인트활용방법_merged",
+        "related_document_title": "신용카드 포인트 활용방법",
+        "related_document_regulation": "여신전문금융업법 제19조",
+        "related_document_summary": "신용카드 포인트 적립 조건, 활용 방법 및 유의사항을 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
+    },
+    "정부지원 바우처 (등유, 임신 등)": {
+        "keyword": "정부지원 바우처",
+        "question": "정부지원 바우처 사용 방법을 알고 싶어요.",
+        "content": """정부지원 바우처 카드 이용 안내입니다.
+
+1. 지원 바우처 종류
+   - 에너지 바우처 (등유, 난방비)
+   - 임신·출산 바우처
+   - 아동수당 카드
+
+2. 사용 방법
+   - 바우처 카드 발급 후 지정 가맹점에서 사용
+   - 잔액 조회: 앱 또는 고객센터
+
+3. 유의사항
+   - 사용처 제한 있음 (지정 가맹점만)
+   - 유효기간 내 사용 필요""",
+        "related_document_id": "신용카드의_종류_merged",
+        "related_document_title": "신용카드의 종류",
+        "related_document_regulation": "",
+        "related_document_summary": "신용카드 종류 및 정부지원 카드 유형별 안내입니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
+    },
+    "가상계좌 예약/취소": {
+        "keyword": "가상계좌",
+        "question": "가상계좌 결제 예약을 하고 싶어요.",
+        "content": """가상계좌 결제 예약 및 취소 안내입니다.
+
+1. 가상계좌 결제 예약
+   - 앱에서 '가상계좌' 메뉴 선택
+   - 결제 금액과 입금 예정일 설정
+   - 예약 후 해당 일자에 자동 처리
+
+2. 예약 취소
+   - 입금 예정일 전까지 취소 가능
+   - 앱 또는 고객센터에서 취소
+
+3. 유의사항
+   - 은행 점검 시간에는 처리 지연 가능
+   - 계좌 잔액 부족 시 결제 실패""",
+        "related_document_id": "신용카드_관련주요_용어_안내_merged",
+        "related_document_title": "신용카드 관련 주요 용어 안내",
         "related_document_regulation": "여신전문금융업법 제17조",
-        "related_document_summary": "결제 방식 변경 및 자동이체 설정 방법을 안내합니다."
+        "related_document_summary": "결제 방식, 가상계좌 등 신용카드 결제 관련 용어와 방법을 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
+    },
+    "한도 안내": {
+        "keyword": "한도 조회",
+        "question": "현재 카드 한도를 확인하고 싶어요.",
+        "content": """카드 한도 조회 방법을 안내드립니다.
+
+1. 한도 조회
+   - 앱에서 '한도 관리' 메뉴 선택
+   - 총 한도, 사용 한도, 가용 한도 확인
+   - 일시불/할부 한도 별도 확인
+
+2. 한도 부족 시
+   - 선결제(즉시출금)로 가용 한도 확보
+   - 임시 한도 증액 신청 가능""",
+        "related_document_id": "카드상품별_거래조건_이자율__수수료_등__merged",
+        "related_document_title": "카드상품별 거래조건(이자율, 수수료 등)",
+        "related_document_regulation": "여신전문금융업법 제6조",
+        "related_document_summary": "카드 한도, 이자율, 수수료 등 거래조건을 상세히 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
     }
 }
 
@@ -140,10 +262,12 @@ DEFAULT_CONTENT_TEMPLATE = {
 
 - 운영시간: 평일 09:00~18:00
 - 앱: 24시간 이용 가능""",
-    "related_document_id": "general-1-1-1",
-    "related_document_title": "일반 문의 안내",
+    "related_document_id": "신용카드의_종류_merged",
+    "related_document_title": "신용카드의 종류",
     "related_document_regulation": "",
-    "related_document_summary": "일반 문의 사항에 대한 안내입니다."
+    "related_document_summary": "신용카드의 종류와 특성에 대한 일반 안내입니다.",
+    "related_source_table": "service_guide_documents",
+    "related_document_type": "guide"
 }
 
 
@@ -175,10 +299,12 @@ FALLBACK_INQUIRIES_DATA = [
    - 법인카드는 담당자 승인이 필요합니다.
    - 가족카드는 주카드 회원의 동의가 필요합니다.
    - 해외 분실 시 긴급 카드 발급 서비스(수수료 $30)를 이용하실 수 있습니다.""",
-        "related_document_id": "card-1-1-1",
-        "related_document_title": "카드 즉시 사용 정지",
+        "related_document_id": "카드분실_도난_관련피해_예방_및_대응방법_merged",
+        "related_document_title": "카드분실·도난 관련 피해 예방 및 대응방법",
         "related_document_regulation": "여신전문금융업법 제16조",
-        "related_document_summary": "고객의 카드 분실 신고 시 즉시 카드 사용을 정지하여 부정 사용을 방지합니다."
+        "related_document_summary": "카드 분실·도난 시 피해 예방 및 즉시 대응 절차를 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
     },
     {
         "id": 2,
@@ -209,10 +335,12 @@ FALLBACK_INQUIRIES_DATA = [
 5. 긴급 지원
    - 해외에서 카드 분실 시 긴급 카드 발급 서비스를 이용하실 수 있습니다.
    - 주요 공항에 테디카드 라운지가 있어 즉시 발급 가능합니다.""",
-        "related_document_id": "card-2-1-1",
-        "related_document_title": "해외 결제 차단 해제",
+        "related_document_id": "해외여행_시IC카드_이용팁_merged",
+        "related_document_title": "해외여행 시 IC카드 이용팁",
         "related_document_regulation": "외국환거래법 제3조",
-        "related_document_summary": "해외 결제 차단 상태를 즉시 해제하고, 해외 사용 설정을 활성화합니다."
+        "related_document_summary": "해외 여행 시 IC카드 이용 방법과 주의사항을 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
     },
     {
         "id": 3,
@@ -242,10 +370,12 @@ FALLBACK_INQUIRIES_DATA = [
    - 적립이 누락된 경우 고객센터로 문의하시면 확인 후 수동 적립해드립니다.
    - 거래 영수증과 카드 번호가 필요합니다.
    - 처리 기간은 3~5 영업일입니다.""",
-        "related_document_id": "card-1-2-1",
-        "related_document_title": "포인트 적립 정책",
+        "related_document_id": "신용카드_포인트활용방법_merged",
+        "related_document_title": "신용카드 포인트 활용방법",
         "related_document_regulation": "여신전문금융업법 제19조",
-        "related_document_summary": "포인트 적립 조건, 제외 업종, 적립 시기를 안내합니다."
+        "related_document_summary": "신용카드 포인트 적립 조건, 활용 방법 및 유의사항을 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
     },
     {
         "id": 4,
@@ -279,10 +409,12 @@ FALLBACK_INQUIRIES_DATA = [
    - 전년도 실적 조건 충족 시 다음 연도 연회비 면제
    - 실적 기준: 월 30만원 이상, 연 360만원 이상
    - 실적은 전년도 1월~12월 기준으로 산정""",
-        "related_document_id": "card-3-1-1",
-        "related_document_title": "연회비 환불 정책",
+        "related_document_id": "신용카드_선택_시_고려사항_merged",
+        "related_document_title": "신용카드 선택 시 고려사항",
         "related_document_regulation": "여신전문금융업법 제18조",
-        "related_document_summary": "연회비 환불 조건, 신청 방법, 면제 조건을 상세히 안내합니다."
+        "related_document_summary": "연회비, 혜택, 수수료 등 신용카드 선택 시 고려할 사항을 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
     },
     {
         "id": 5,
@@ -323,10 +455,12 @@ FALLBACK_INQUIRIES_DATA = [
    - 증액 신청은 월 1회로 제한
    - 증액 거부 시 3개월 후 재신청 가능
    - 과도한 증액 신청은 신용평가에 영향을 줄 수 있음""",
-        "related_document_id": "card-4-1-1",
-        "related_document_title": "신용한도 증액 심사",
+        "related_document_id": "카드상품별_거래조건_이자율__수수료_등__merged",
+        "related_document_title": "카드상품별 거래조건(이자율, 수수료 등)",
         "related_document_regulation": "여신전문금융업법 제6조",
-        "related_document_summary": "신용한도 증액 신청 방법, 심사 기준, 즉시 증액 조건을 안내합니다."
+        "related_document_summary": "카드 한도, 이자율, 수수료 등 거래조건을 상세히 안내합니다.",
+        "related_source_table": "service_guide_documents",
+        "related_document_type": "guide"
     }
 ]
 
@@ -403,6 +537,8 @@ def analyze_consultations_for_inquiries(conn: psycopg2_connection, limit: int = 
                 doc_title = content_data["related_document_title"]
                 doc_regulation = content_data["related_document_regulation"]
                 doc_summary = content_data["related_document_summary"]
+                source_table = content_data.get("related_source_table", "service_guide_documents")
+                doc_type = content_data.get("related_document_type", "guide")
             else:
                 # 매핑이 없으면 카테고리명 기반으로 생성
                 keyword = category.split('/')[0] if '/' in category else category
@@ -413,6 +549,8 @@ def analyze_consultations_for_inquiries(conn: psycopg2_connection, limit: int = 
                 doc_title = DEFAULT_CONTENT_TEMPLATE["related_document_title"]
                 doc_regulation = DEFAULT_CONTENT_TEMPLATE["related_document_regulation"]
                 doc_summary = DEFAULT_CONTENT_TEMPLATE["related_document_summary"]
+                source_table = DEFAULT_CONTENT_TEMPLATE.get("related_source_table", "service_guide_documents")
+                doc_type = DEFAULT_CONTENT_TEMPLATE.get("related_document_type", "guide")
 
             inquiries.append({
                 "id": idx,
@@ -426,7 +564,9 @@ def analyze_consultations_for_inquiries(conn: psycopg2_connection, limit: int = 
                 "related_document_id": doc_id,
                 "related_document_title": doc_title,
                 "related_document_regulation": doc_regulation,
-                "related_document_summary": doc_summary
+                "related_document_summary": doc_summary,
+                "related_source_table": source_table,
+                "related_document_type": doc_type
             })
 
         return inquiries
@@ -487,9 +627,10 @@ def load_frequent_inquiries_data(conn: psycopg2_connection, force_reload: bool =
                 id, keyword, question, count, trend, content,
                 related_document_id, related_document_title,
                 related_document_regulation, related_document_summary,
+                related_source_table, related_document_type,
                 is_active, created_at
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, true, NOW()
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, true, NOW()
             )
             ON CONFLICT (id) DO UPDATE SET
                 keyword = EXCLUDED.keyword,
@@ -501,6 +642,8 @@ def load_frequent_inquiries_data(conn: psycopg2_connection, force_reload: bool =
                 related_document_title = EXCLUDED.related_document_title,
                 related_document_regulation = EXCLUDED.related_document_regulation,
                 related_document_summary = EXCLUDED.related_document_summary,
+                related_source_table = EXCLUDED.related_source_table,
+                related_document_type = EXCLUDED.related_document_type,
                 updated_at = NOW()
         """
 
@@ -515,7 +658,9 @@ def load_frequent_inquiries_data(conn: psycopg2_connection, force_reload: bool =
                 item["related_document_id"],
                 item["related_document_title"],
                 item["related_document_regulation"],
-                item["related_document_summary"]
+                item["related_document_summary"],
+                item.get("related_source_table", "service_guide_documents"),
+                item.get("related_document_type", "guide")
             )
             for item in inquiries_data
         ]

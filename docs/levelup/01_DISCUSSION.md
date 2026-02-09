@@ -1,7 +1,7 @@
 # 01 단계: 3팀 협업 논의 사항
 
 > **생성**: 2026-02-10 00:15
-> **마지막 수정**: 2026-02-10 03:08 (DB)
+> **마지막 수정**: 2026-02-10 04:15 (DB)
 > **참여**: DB(D), Backend(B), Frontend(F)
 
 ---
@@ -628,4 +628,48 @@ ADD COLUMN related_document_type VARCHAR(50);
 | frequent_inquiries 카테고리 매핑 | ✅ 9/10 (90%) + sourceTable/documentType |
 | consultations.satisfaction_score | ✅ 1-5점 (6552건) |
 | consultations.quality_score | ✅ 10-100점 (6552건, 평균 76) |
-| consultations.is_best_practice | ✅ 4건 등록 (quality=95, satisfaction=5) |
+| consultations.is_best_practice | ✅ 4건 (분실/도난, 해외결제, 수수료/연체, 한도) |
+| consultations.referenced_documents | ✅ 1967건 실제 문서 ID 교체 (mock DOC-XXXX → 실제) |
+
+---
+
+## [DB] referenced_documents + best_practice 수정 (2026-02-10 04:15)
+
+### C-D4: referenced_documents 실제 문서 ID 교체 ✅
+
+**문제**: `populate_extended_fields.py`가 `DOC-{random}` 형태의 mock ID를 생성
+→ 프론트엔드에서 문서 클릭 시 빈 모달 (해당 ID가 어떤 테이블에도 없음)
+
+**수정 내용**:
+1. DB에서 1967건의 mock DOC-XXXX ID를 실제 문서 ID로 교체
+   - 60% service_guide_documents, 25% card_products, 15% notices
+   - 새 스키마: `{documentId, sourceTable, documentType, title, used}`
+2. `populate_extended_fields.py` 수정: `generate_referenced_documents()` → DB에서 실제 ID 조회
+   - `_load_real_document_ids()` 헬퍼 추가 (1회 캐시)
+   - `conn` 파라미터 추가로 DB 조회 지원
+
+### C-D5: best practice 해외결제 카테고리 수정 ✅
+
+| # | ID | category_main | category_sub | category_raw |
+|---|---|---|---|---|
+| 1 | CS-EMP049-... | 분실/도난 | 정지/해제 | 분실/도난 신청/해제 |
+| 2 | CS-EMP001-... | 결제/승인 | **해외결제** | 해외결제 문의 |
+| 3 | CS-EMP043-... | 수수료/연체 | 조회/안내 | 연회비 안내 |
+| 4 | CS-EMP026-... | 한도 | 상향/증액 | 한도상향 접수/처리 |
+
+### C-D6: CATEGORY_MAPPING 연체문의 추가 ✅
+
+`education.py`에 `'연체문의': '수수료/연체'` 매핑 추가 (backend + backend_dev 동시)
+→ SimulationPage.tsx의 categoryColors에 정의된 `연체문의`가 이제 정상 라우팅됨
+
+### simulationScenariosData ↔ DB 카테고리 매칭 결과
+
+| Frontend 카테고리 | CATEGORY_MAPPING | DB category_main | 상태 |
+|---|---|---|---|
+| 카드분실 | → 분실/도난 | 분실/도난 (405건) | ✅ |
+| 해외결제 | → 결제/승인 | 결제/승인 (2788건) | ✅ |
+| 수수료문의 | → 수수료/연체 | 수수료/연체 (136건) | ✅ |
+| 기타문의 | → 기타 | 기타 (1135건) | ✅ |
+| 포인트/혜택 | → 포인트/혜택 | 포인트/혜택 (340건) | ✅ |
+| 한도증액 | → 한도 | 한도 (576건) | ✅ |
+| 연체문의 (미사용) | → 수수료/연체 | 수수료/연체 | ✅ 매핑 추가됨 |

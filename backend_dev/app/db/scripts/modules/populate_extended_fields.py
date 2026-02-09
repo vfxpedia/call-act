@@ -378,13 +378,22 @@ def generate_emotion_score(sentiment: str, rng) -> int:
 
 
 def generate_satisfaction_score(sentiment: str, rng) -> int:
-    """만족도 점수 생성 (1-5)"""
+    """만족도 점수 생성 (1-5, feedbackScore/20 환산값)"""
     if sentiment == "positive":
         return rng.randint(4, 5)
     elif sentiment == "neutral":
         return rng.randint(3, 4)
     else:
         return rng.randint(1, 3)
+
+
+def generate_quality_score(satisfaction: int, emotion: int, fcr: bool, rng) -> int:
+    """QA 평가 점수 생성 (10-100). satisfaction은 1-5점이므로 ×20 환산"""
+    base = satisfaction * 20  # 1-5점 → 20-100점
+    emo_adj = (emotion - 50) / 5  # -10 ~ +10
+    fcr_bonus = 5 if fcr else -5
+    noise = rng.randint(-5, 5)
+    return max(10, min(100, int(base + emo_adj + fcr_bonus + noise)))
 
 
 def generate_feedback_text(sentiment: str, rng) -> Optional[str]:
@@ -421,22 +430,72 @@ def generate_recording_info(consultation_id: str, call_duration_str: str, rng) -
     return file_path, recording_duration, file_size
 
 
-def generate_referenced_documents(category_main: str, rng) -> list:
-    """참조 문서 목록 생성 (30% 확률)"""
+def _load_real_document_ids(conn: psycopg2_connection) -> dict:
+    """DB에서 실제 문서 ID 목록을 로드 (1회만)"""
+    cur = conn.cursor()
+    result = {"guides": [], "cards": [], "notices": []}
+
+    cur.execute("SELECT id, title FROM service_guide_documents ORDER BY id")
+    result["guides"] = [(r[0], r[1]) for r in cur.fetchall()]
+
+    cur.execute("SELECT id, name FROM card_products ORDER BY id")
+    result["cards"] = [(r[0], r[1]) for r in cur.fetchall()]
+
+    cur.execute("SELECT id, title FROM notices ORDER BY id")
+    result["notices"] = [(r[0], r[1]) for r in cur.fetchall()]
+
+    cur.close()
+    return result
+
+
+# 모듈 레벨 캐시
+_real_doc_cache = None
+
+
+def generate_referenced_documents(category_main: str, rng, conn: psycopg2_connection = None) -> list:
+    """참조 문서 목록 생성 (30% 확률). 실제 DB 문서 ID 사용."""
+    global _real_doc_cache
+
     if rng.random() > 0.3:
         return []
 
-    doc_types = ["service_guide", "product_info", "faq", "notice"]
-    docs = []
+    # 실제 문서 ID 로드 (1회)
+    if conn and _real_doc_cache is None:
+        _real_doc_cache = _load_real_document_ids(conn)
 
+    docs = []
     num_docs = rng.randint(1, 3)
+
     for i in range(num_docs):
-        doc_type = rng.choice(doc_types)
+        roll = rng.random()
+        if roll < 0.6 and _real_doc_cache and _real_doc_cache["guides"]:
+            chosen = rng.choice(_real_doc_cache["guides"])
+            real_id, real_title = chosen
+            source_table = "service_guide_documents"
+            doc_type = "guide"
+        elif roll < 0.85 and _real_doc_cache and _real_doc_cache["cards"]:
+            chosen = rng.choice(_real_doc_cache["cards"])
+            real_id, real_title = chosen
+            source_table = "card_products"
+            doc_type = "card"
+        elif _real_doc_cache and _real_doc_cache["notices"]:
+            chosen = rng.choice(_real_doc_cache["notices"])
+            real_id, real_title = chosen
+            source_table = "notices"
+            doc_type = "notice"
+        else:
+            # fallback (conn 없을 때)
+            real_id = f"DOC-{rng.randint(1000, 9999)}"
+            real_title = f"{category_main} 관련 문서"
+            source_table = "service_guide_documents"
+            doc_type = "guide"
+
         docs.append({
             "step_number": i + 1,
-            "doc_id": f"DOC-{rng.randint(1000, 9999)}",
-            "doc_type": doc_type,
-            "title": f"{category_main} 관련 {doc_type} 문서",
+            "documentId": real_id,
+            "sourceTable": source_table,
+            "documentType": doc_type,
+            "title": real_title,
             "used": rng.choice([True, True, False])
         })
 
@@ -455,7 +514,7 @@ def populate_extended_fields(conn: psycopg2_connection, batch_size: int = 500):
         cursor.execute("""
             SELECT
                 c.id, c.customer_id, c.category_main, c.call_time, c.call_duration,
-                c.processing_timeline, cust.name as customer_name
+                c.processing_timeline, cust.name as customer_name, c.fcr
             FROM consultations c
             LEFT JOIN customers cust ON c.customer_id = cust.id
             ORDER BY c.id
@@ -481,6 +540,7 @@ def populate_extended_fields(conn: psycopg2_connection, batch_size: int = 500):
                 sentiment = %s,
                 emotion_score = %s,
                 satisfaction_score = %s,
+                quality_score = %s,
                 feedback_text = %s,
                 feedback_emotions = %s,
                 recording_file_path = %s,
@@ -513,10 +573,12 @@ def populate_extended_fields(conn: psycopg2_connection, batch_size: int = 500):
             sentiment = generate_sentiment(rng)
             emotion_score = generate_emotion_score(sentiment, rng)
             satisfaction_score = generate_satisfaction_score(sentiment, rng)
+            fcr = row[7] if len(row) > 7 else False
+            quality_score = generate_quality_score(satisfaction_score, emotion_score, fcr, rng)
             feedback_text = generate_feedback_text(sentiment, rng)
             feedback_emotions = generate_feedback_emotions(sentiment, rng)
             recording_path, recording_dur, recording_size = generate_recording_info(consultation_id, call_duration, rng)
-            referenced_docs = generate_referenced_documents(category_main, rng)
+            referenced_docs = generate_referenced_documents(category_main, rng, conn)
 
             if follow_up_schedule:
                 stats['follow_up'] += 1
@@ -537,6 +599,7 @@ def populate_extended_fields(conn: psycopg2_connection, batch_size: int = 500):
                 sentiment,
                 emotion_score,
                 satisfaction_score,
+                quality_score,
                 feedback_text,
                 PsycopgJson(feedback_emotions),
                 recording_path,
