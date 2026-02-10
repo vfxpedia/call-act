@@ -43,6 +43,8 @@ _CARD_FIELDS = (
     "time",
     "note",
     "documentType",
+    "sourceTable",
+    "relevanceScore",
 )
 
 
@@ -74,29 +76,9 @@ _TABLE_DOC_TYPE_MAP = {
     "service_guide_documents": "guide",
 }
 
-# [v26] DB document_type → 화면 documentType 매핑
-_DB_DOC_TYPE_MAP = {
-    "terms": "terms",
-    "service_guide": "guide",
-    "usage_guide": "guide",
-    "faq": "general",
-}
 
-
-def _table_to_doc_type(table: Optional[str], metadata: Optional[Dict[str, Any]] = None) -> str:
-    """DB 테이블 + document_type → 화면 documentType 5종 매핑"""
-    actual_table = table or ""
-    # card_products → product-spec (고정)
-    if actual_table in ("card_tbl", "card_products"):
-        return "product-spec"
-    # service_guide_documents → document_type 기반 매핑
-    if actual_table in ("guide_tbl", "service_guide_documents"):
-        meta = metadata or {}
-        db_doc_type = meta.get("category1") or meta.get("document_type") or ""
-        if db_doc_type and db_doc_type in _DB_DOC_TYPE_MAP:
-            return _DB_DOC_TYPE_MAP[db_doc_type]
-        return "guide"  # 기본값
-    return "general"
+def _table_to_doc_type(table: Optional[str]) -> str:
+    return _TABLE_DOC_TYPE_MAP.get(table or "", "general")
 
 
 def _doc_to_card_base(doc: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -115,6 +97,8 @@ def _doc_to_card_base(doc: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     raw_content = str(raw_content)
     # structured.content가 있으면 이미 정리된 요약이므로 우선 사용
     summary = structured.get("content") or _summarize_text(raw_content)
+    # sourceTable: 원본 DB 테이블명 (문서 재조회용)
+    raw_table = str(doc.get("table") or meta.get("source_table") or "")
     return {
         "id": str(doc.get("id") or meta.get("id") or ""),
         "title": structured.get("title") or doc.get("title") or meta.get("title") or "",
@@ -129,14 +113,22 @@ def _doc_to_card_base(doc: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         "fullText": raw_content.strip() or None,
         "time": structured.get("time") or meta.get("time") or "",
         "note": structured.get("note") or meta.get("note") or "",
-        "documentType": meta.get("documentType") or _table_to_doc_type(doc.get("table"), meta) or "general",
+        "documentType": meta.get("documentType") or meta.get("document_type") or _table_to_doc_type(raw_table) or "general",
+        "sourceTable": raw_table,
+        "relevanceScore": round(float(doc.get("score") or 0) * 100),
     }
+
+
+_DB_PROTECTED_FIELDS = frozenset({"id", "title", "sourceTable", "documentType", "relevanceScore"})
 
 
 def _merge_card(base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]:
     merged = dict(base)
     for key in _CARD_FIELDS:
         if key not in overlay:
+            continue
+        # DB에서 온 필드는 LLM overlay로 덮어쓰지 않음 (환각 방지)
+        if key in _DB_PROTECTED_FIELDS and base.get(key) not in ("", None):
             continue
         val = overlay.get(key)
         if key in ("requiredChecks", "exceptions", "keywords"):
@@ -151,7 +143,7 @@ def _merge_card(base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]
         if merged.get(key) in ("", None):
             merged[key] = None
     # keep strings for others
-    for key in ("title", "systemPath", "regulation", "time", "note", "documentType", "id"):
+    for key in ("title", "systemPath", "regulation", "time", "note", "documentType", "id", "sourceTable"):
         if merged.get(key) is None:
             merged[key] = ""
     return merged
