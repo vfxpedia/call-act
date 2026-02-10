@@ -797,3 +797,32 @@ ADD COLUMN related_document_type VARCHAR(50);
 | D-9 | notices end_date를 현재+30일로 갱신 | 공지사항 정상 표시 |
 | D-10 | referenced_documents 필드명 `documentId`→`doc_id` (합의 시) | 참조문서 클릭 정상화 |
 | D-11 | card_products main_benefits 전처리 (전화번호 제거) | 카드 혜택 정상 표시 |
+
+---
+
+## Phase C 검증 결과 (Frontend, 2026-02-10 11:00)
+
+> 커밋: `0b904f6` (fix/responsive-layout 브랜치)
+
+### 완료된 검증 항목
+
+| # | 항목 | 결과 | 수정 내용 |
+|---|------|------|----------|
+| 0 | 고객 persona 태그 한글 표기 | OK | `translatePersonalityTag()` 44개 매핑 정상 동작 |
+| 1 | 피드백 모달 → DB 저장 | **수정 완료** | FeedbackModal에서 `feedbackScore`(100점), `satisfactionScore`(5점) localStorage 저장 → handleSaveACW에서 `SaveConsultationRequest`에 포함 |
+| 2 | 가이드 초록 라인 + 교육 가이드 | **수정 완료** | 부모 overflow:visible 임시 적용으로 클리핑 방지; 가이드 버튼 /acw, /simulation에서도 노출 |
+| 4 | 핵심 키워드 추출 DB 기반 | **수정 완료** | `routing.card_name` → `routing.matched.card_names[]` 배열 읽기로 변경 (legacy fallback 포함) |
+
+### Backend 팀 확인 필요 사항
+
+| # | 항목 | 설명 |
+|---|------|------|
+| **B-1** | `feedbackScore` / `satisfactionScore` DB 컬럼 | Frontend가 POST `/api/v1/consultations`에 이 두 필드를 포함하여 전송. Backend consultations 엔드포인트에서 이 필드를 받아서 DB에 저장하는지 확인 필요 |
+| **B-2** | `routing.matched` 구조 확인 | Frontend가 `routing.matched.card_names[]`, `routing.matched.actions[]`, `routing.matched.payments[]` 배열을 읽음. Backend RAG WebSocket 응답에서 이 구조가 맞는지 확인 |
+| **B-3** | 상담 상세 API `satisfaction_score` 반환 | `GET /api/v1/consultations/{id}` 응답에 `satisfaction_score` 필드 포함되는지 확인 (ConsultationDetailModal에서 별점 표시용) |
+
+### 미완료 항목
+
+| # | 항목 | 상태 | 비고 |
+|---|------|------|------|
+| 3 | 키보드 숏컷 + 칸반 업무지원 | TODO | Step 네비게이션(좌우 화살표), 업무지원 기능 구현 범위 결정 필요 |
