@@ -1228,3 +1228,33 @@ Backend meta.search_time_ms → WebSocket → RAGResponse.meta.search_time_ms �
 |------|-----------|-----------|
 | B-6 (유사도) | 낮음 (1줄 추가) | 높음 (검색 품질 투명성) |
 | B-7 (소요시간) | 낮음 (1줄 추가) | 중간 (성능 모니터링) |
+
+---
+
+## [Backend] B-1~B-7 확인 및 구현 완료 (2026-02-10 17:00)
+
+### 기존 확인 요청 (B-1~B-5): 모두 이미 구현됨
+
+| # | 항목 | 상태 | 위치 |
+|---|------|------|------|
+| **B-1** | feedbackScore/satisfactionScore POST 저장 | ✅ 이미 구현 | `consultations.py:67-68` (모델), `:443-444, 491-492` (SQL) |
+| **B-2** | routing.matched 구조 (card_names[], actions[], payments[]) | ✅ 이미 구현 | `router.py:423-428` |
+| **B-3** | GET /consultations/{id} → satisfaction_score | ✅ 이미 구현 | `consultations.py:535-576` (SELECT c.* → dict 반환) |
+| **B-4** | is_best_practice 목록 응답 포함 | ✅ 이미 구현 | `consultations.py:141,218,302` |
+| **B-5** | GET /frequent-inquiries/{id} 응답 shape | ✅ 이미 구현 | `frequent_inquiries.py:21-40,54-75` |
+
+### 신규 구현 (B-6, B-7)
+
+**B-6: RAG 카드 `relevanceScore` 추가 ✅ 구현 완료**
+- `card_generator.py`: `_CARD_FIELDS`에 `"relevanceScore"` 추가
+- `_doc_to_card_base()`: `round(float(doc.get("score") or 0) * 100)` → 0-100 정수 스케일
+- `rag_frontend.py`: `_to_front_card()`에 `relevanceScore` 필드 추가
+
+**B-7: RAG 응답 `meta.search_time_ms` 추가 ✅ 구현 완료**
+- `card_pipeline.py`: `build_card_response()` 반환 `meta`에 `search_time_ms: round((t_post - t_start) * 1000)` 추가
+- `t_post - t_start` = 라우팅 + 검색 + 카드 생성 + 후처리 전체 소요시간
+
+**변경 파일**:
+- `backend/app/llm/rag_llm/card_generator.py` — _CARD_FIELDS + _doc_to_card_base에 relevanceScore
+- `backend/app/rag/pipeline/card_pipeline.py` — meta에 search_time_ms
+- `backend/app/api/v1/endpoints/rag_frontend.py` — _to_front_card에 sourceTable + relevanceScore
