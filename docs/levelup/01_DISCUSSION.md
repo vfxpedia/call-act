@@ -1090,24 +1090,22 @@ guide_general (216건)
 
 **DB 즉시 조치**:
 - [x] 다둥이 중복 제거 (40→19건) — DB 단독
-- [ ] 특수카드 scope 필터 추가 — **Backend 협업 필요**
+- [x] 특수카드 scope 필터 추가 — ✅ **B-6 적용 완료**
 
-> **[Backend 요청] B-6: 특수카드 scope 필터 추가**
+> **[B-6 적용 완료] 특수카드 검색 오염 방지 (2026-02-10 15:00)**
 >
-> `doc_source_filters.py`에 `guide_special` 스코프 신설 제안:
-> ```python
-> "guide_special": "id LIKE '%다둥이%' OR id LIKE '%dadungi%' OR id LIKE '%k패스%'
->                   OR id LIKE '%나라사랑%' OR id LIKE '%narasarang%' OR id LIKE '%국민행복%'",
-> "guide_general": "... AND NOT (위 조건)",
-> ```
-> 특수카드명이 쿼리에 포함될 때만 `guide_special` 스코프 활성화.
+> **방식**: `exclude_id_patterns` 필터 신설 (scope 변경 대신 동적 제외)
 >
-> 또는 `_demotion_for_noise()`에 다둥이/국민행복/나라사랑 감점 추가:
-> ```python
-> for card in ["다둥이", "국민행복", "나라사랑"]:
->     if card not in query_compact and card in text:
->         penalty -= 0.25
-> ```
+> | 파일 | 변경 내용 |
+> |------|----------|
+> | `retriever/db.py` | `exclude_id_patterns` 필터 지원 (build_where_clause + text_search) |
+> | `pipeline/retrieve.py` | 특수카드 미언급시 7개 ID 패턴 자동 제외 + post_filter 강화 |
+> | `policy/policy_pins.py` | `dadungi_013` → `서울시다둥이행복카드_13` (삭제된 doc 교체) |
+>
+> **동작 원리**:
+> 1. 쿼리에 특수카드명(다둥이/K-패스/나라사랑/국민행복/민생/시니어) 없으면 → SQL `NOT (id LIKE ANY(...))` 적용
+> 2. 특수카드명 있으면 → 제외 없이 전체 검색 (기존 동작 유지)
+> 3. 후처리에서도 잔여 특수카드 문서 제거 (이중 안전장치)
 
 ### 3. 데이터 품질 감사 결과 요약
 
