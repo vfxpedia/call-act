@@ -92,11 +92,20 @@ Level 01에서 달성한 것:
 - **담당**: F
 - **상태**: ~~수정 예정~~ **수정 완료**
 
-### F-8. Mock 피드백 데이터 추가 ✅ 완료
+### F-8. Mock 피드백 데이터 추가 — 부분 완료 (추가 작업 필요)
 - **현상**: 피드백 저장 기능은 작동하나, 기존 DB 데이터에 mock 피드백이 없어 화면 확인 불가
 - **요구**: 기존 상담 데이터에 mock 피드백 정보 추가 (satisfaction_score, feedback_text, feedback_emotions 등)
 - **담당**: D + F
-- **상태**: ~~검토 예정~~ **완료** — `populate_extended_fields.py`에서 이미 모든 피드백 필드 생성 중 (sentiment 100%, emotion_score 100%, satisfaction_score 100%, feedback_text 60%, feedback_emotions 100%). API 반환 및 ConsultationDetailModal 피드백 보기 기능 정상 동작 확인됨.
+- **조사 결과** (2026-02-10 15:00):
+  1. ✅ **Mock 데이터 (6,557건)**: `populate_extended_fields.py`에서 이미 생성됨 (feedback_text 61%, emotions 100%)
+  2. ⚠️ **실데이터 (다이렉트콜 저장분)**: FeedbackModal "확인" 시에만 피드백 저장, "닫기"/"오늘 보지않기" 시 NULL
+     - DB 확인: 10건 중 5건이 feedback_text=NULL, sentiment=NULL (emotion_score/satisfaction_score만 존재)
+     - 원인: FeedbackModal.handleConfirm → localStorage('feedbackScores') → ACW 저장 흐름에서, 모달 미확인 시 localStorage에 데이터 없음
+  3. ✅ **저장 파이프라인**: Backend consultations.py INSERT/UPDATE에 feedbackText/feedbackEmotions 필드 포함 확인됨
+- **남은 작업**:
+  - [ ] 실데이터 중 피드백 NULL인 건에 대해 emotion_score 기반 backfill 스크립트
+  - [ ] FeedbackModal 닫기 시에도 기본 피드백 데이터 생성 (선택적)
+- **상태**: 부분 완료 — Mock 데이터 OK, 실데이터 backfill 필요
 
 ---
 
@@ -227,9 +236,9 @@ Level 01에서 달성한 것:
 |-------|------|------|------|
 | **1** | **F** | F-1 시뮬레이션 매핑, F-3 메인텍스트, F-4 문서정렬, F-5 포커싱링, F-6 검색포커싱, F-7 복사버튼 | ✅ **전체 완료** |
 | **1** | **B** | F-2/B-1 [메모] 프롬프트 | ✅ **이미 적용됨** |
-| **1** | **D+F** | F-8 Mock 피드백 데이터 | ✅ **완료** (DB 데이터 + API + UI 확인) |
+| **1** | **D+F** | F-8 Mock 피드백 데이터 | ⚠️ Mock OK, 실데이터 backfill 필요 |
 | **2** | **D** | D-1 fullText 전처리 | 중기 |
-| **2** | **B+D** | D-2 참조 문서 환각 조사 | ✅ **조사 완료** (환각 아님) |
+| **2** | **B+D** | D-2 참조 문서 환각 방지 | ✅ **수정 완료** (_DB_PROTECTED_FIELDS) |
 | **3** | **M+B** | M-1 STT 비교 테스트 | **🔥 최우선 — 진행 중** |
 | **3** | **M+B** | M-2 키워드 추출 개선 | **🔥 최우선 — 설계 중** |
 | **3** | **B+D** | M-3 RAG 검색 품질 | M-1,2 이후 |
@@ -258,15 +267,22 @@ Level 01에서 달성한 것:
 
 | 날짜 | 내용 |
 |------|------|
-| 2026-02-10 | Phase 1 Frontend 수정 완료 (F-1, F-3~F-7 총 6건) |
-| 2026-02-10 | Phase 2 전체 조사 완료: B-1 이미 적용 확인, D-2 환각 아님 확인, F-8 DB 데이터 존재 확인 |
-| 2026-02-10 | 문서 상세보기 fullText API 연동, FAQ 필드명 수정, 피드백 저장 플로우 완성 |
-| 2026-02-10 | Transcript 포맷 정규화 (dict/array 양방향 호환), 피드백 필드 5종 저장 추가 |
+| 2026-02-10 AM | Phase 1 Frontend 수정 완료 (F-1, F-3~F-7 총 6건) |
+| 2026-02-10 AM | 문서 상세보기 fullText API 연동, FAQ 필드명 수정, 피드백 저장 플로우 완성 |
+| 2026-02-10 AM | Transcript 포맷 정규화 (dict/array 양방향 호환), 피드백 필드 5종 저장 추가 |
+| 2026-02-10 09:00~10:30 | STT WHISPER_PROMPT 에코 방지 (whisper.py 할루시네이션 필터 12개 추가) |
+| 2026-02-10 10:30~11:00 | 상담 상세 모달 필드 매핑 수정 (transcript, referenced_documents) |
+| 2026-02-10 11:00~12:00 | RAG 유사도 점수 실제화 (simple_retriever.py 하드코딩 0.9 → _text_similarity) |
+| 2026-02-10 13:00~14:00 | Level 02 Phase 2 진행: B-1 [메모] 프롬프트 확인, D-2 LLM 환각 조사 |
+| 2026-02-10 14:00~15:00 | D-2 수정: card_generator.py _DB_PROTECTED_FIELDS 추가 (id/title/sourceTable/documentType/relevanceScore 보호) |
+| 2026-02-10 15:00~15:30 | F-8 실데이터 조사: ADMIN 10건 중 5건 피드백 NULL, FeedbackModal 미확인 시 저장 안됨 확인 |
+| 2026-02-10 15:30 | Backend/Frontend 서브모듈 커밋 + Discussion 문서 업데이트 |
 
 ## 다음 단계
 
 1. ~~**즉시**: Phase 1 Frontend 수정 진행 (F-1 ~ F-7)~~ ✅ 완료
-2. ~~**이번 주**: Phase 2 조사/논의 (B-1, D-2, F-8)~~ ✅ 전체 완료 (B-1 이미 적용, D-2 환각 아님 확인, F-8 DB 데이터 존재 확인)
-3. **이번 주**: Phase 3 M-1 STT 비교 테스트 실행 (비교 대시보드 활용)
-4. **이번 주**: Phase 3 M-2 키워드 추출 개선 설계
-5. **다음 주**: Phase 3 M-3 RAG 검색 품질 + Phase 4 논의
+2. ~~**이번 주**: Phase 2 조사/논의 (B-1, D-2)~~ ✅ B-1 이미 적용, D-2 수정 완료
+3. **F-8 추가 작업**: 실데이터 피드백 NULL 건 backfill 스크립트 + FeedbackModal 닫기 시 기본값 저장 검토
+4. **이번 주**: Phase 3 M-1 STT 비교 테스트 실행 (비교 대시보드 활용)
+5. **이번 주**: Phase 3 M-2 키워드 추출 개선 설계
+6. **다음 주**: Phase 3 M-3 RAG 검색 품질 + Phase 4 논의
