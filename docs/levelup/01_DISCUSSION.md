@@ -1,7 +1,7 @@
 # 01 단계: 3팀 협업 논의 사항
 
 > **생성**: 2026-02-10 00:15
-> **마지막 수정**: 2026-02-10 06:00 (DB)
+> **마지막 수정**: 2026-02-10 14:30 (DB)
 > **참여**: DB(D), Backend(B), Frontend(F)
 
 ---
@@ -1049,3 +1049,109 @@ ADD COLUMN related_document_type VARCHAR(50);
 - [ ] `logs/rag/` 로그 생성 확인
 - [ ] `analyze_acw_logs.py` 실행하여 개선 지표 확인
 - [ ] 매뉴얼 점수에서 인사말 감점 여부 재확인
+
+---
+
+## [DB] 데이터 품질 종합 진단 + 3팀 협업 사항 (2026-02-10 13:00)
+
+### 1. `_merged` 문서 전략 현황
+
+**설계 의도**: merged 문서에서 넓은 매칭 → 하위 청크에서 세부 정보 검색
+**현실**: merged 35건의 하위 청크가 **0건** (대응 관계 없음)
+
+| 구분 | 건수 | 상태 |
+|------|------|------|
+| merged 문서 | 35건 | 독립 큐레이션 요약으로 존재 |
+| 하위 청크 있는 merged | **0건** | merged→chunk 탐색 경로 없음 |
+| 청크만 있는 그룹 (merged 없음) | 83그룹 (1,231건) | 상위 종합 문서 없음 |
+
+→ **현재 구조**: merged는 "권위 있는 요약문"으로 +0.6 스코어 보너스 + 정책 핀으로 활용 중
+→ **개선 방향**: DB에서 merged→chunk 관계를 실제로 만들거나, 기존 방식 유지 결정 필요
+
+### 2. 특수카드 검색 오염 (CRITICAL — Backend 협업 필요)
+
+**증상**: STT 실시간 테스트 시 다둥이/K-패스/육아/국민행복 카드가 무관한 쿼리에서 계속 노출
+
+**근본 원인**: `guide_general` 검색 풀 216건 중 146건(67.6%)이 특수카드 문서
+
+```
+guide_general (216건)
+  ├── K-패스      41건 (19%)
+  ├── 다둥이      40건 (18%) ← 19+21 중복!
+  ├── 나라사랑    36건 (17%)
+  ├── 국민행복    29건 (13%)
+  └── 일반 가이드  70건 (33%) ← 실제 유용한 문서
+```
+
+**오염 메커니즘**:
+1. "결제", "포인트", "카드" 등 범용 키워드가 특수카드 문서의 30~60%에 포함
+2. `_demotion_for_noise()`에서 K-패스만 -0.2 감점, **다둥이/국민행복은 감점 없음**
+3. scope 필터가 `sinhan_terms_*`, `hyundai_applepay_*`만 제외 — 특수카드는 제외 안 됨
+
+**DB 즉시 조치**:
+- [x] 다둥이 중복 제거 (40→19건) — DB 단독
+- [ ] 특수카드 scope 필터 추가 — **Backend 협업 필요**
+
+> **[Backend 요청] B-6: 특수카드 scope 필터 추가**
+>
+> `doc_source_filters.py`에 `guide_special` 스코프 신설 제안:
+> ```python
+> "guide_special": "id LIKE '%다둥이%' OR id LIKE '%dadungi%' OR id LIKE '%k패스%'
+>                   OR id LIKE '%나라사랑%' OR id LIKE '%narasarang%' OR id LIKE '%국민행복%'",
+> "guide_general": "... AND NOT (위 조건)",
+> ```
+> 특수카드명이 쿼리에 포함될 때만 `guide_special` 스코프 활성화.
+>
+> 또는 `_demotion_for_noise()`에 다둥이/국민행복/나라사랑 감점 추가:
+> ```python
+> for card in ["다둥이", "국민행복", "나라사랑"]:
+>     if card not in query_compact and card in text:
+>         penalty -= 0.25
+> ```
+
+### 3. 데이터 품질 감사 결과 요약
+
+| 심각도 | 건수 | 핵심 이슈 |
+|--------|------|----------|
+| CRITICAL | 2 | ~~notice_53 테스트 레코드~~ ✅ 삭제, ~~card_products 65% 연회비 NULL~~ ✅ backfill 완료 |
+| HIGH | 5 | ~~초소형 문서 33건~~ ✅ 1건 삭제+31건 정상 확인, ~~중복 콘텐츠~~ ✅ dadungi 21건 삭제, main_benefits 잘림 3건, ~~performance_condition 전체 NULL~~ ✅ 372건 backfill, keyword_dictionary 중복 |
+| MEDIUM | 6 | 제너릭 키워드, card_name 연결 없음, priority 미차등, 제목 [TABLE] 등 |
+
+### 4. card_products 연회비 NULL 정밀 조사 결과
+
+| 분류 | 건수 | 조치 | 상태 |
+|------|------|------|------|
+| 체크카드 (debit, 연회비 없음 정상) | 172건 | `0`으로 설정 | ✅ 완료 |
+| 신용카드 "없음/면제" 명시 | 21건 | `0`으로 설정 | ✅ 완료 |
+| 신용카드 structured JSONB 파싱 | 12건 | 자동 추출 (3,000~297,000원) | ✅ 완료 |
+| 신용카드 structured null | 56건 | `0`으로 설정 (파트너/특수 카드) | ✅ 완료 |
+
+→ **결과**: NULL 261건 → 0건. 연회비 분포: 0원 250건, 유료 148건 (1,000~697,000원)
+
+### 5. 문서 화면 표시명 점검
+
+| 위치 | 문제 | 담당 |
+|------|------|------|
+| DocumentDetailModal 에러 메시지 | raw ID 노출 (`sinhan_terms_...`) | **Frontend** |
+| RealTimeConsultationPage 참조문서 | `card.id` fallback (`CARD-SHINHAN-...`) | **Frontend** |
+| referenced_documents 57건 빈 title | `plumb_4_1` 제목 누락 | **DB** |
+
+> **[Frontend 요청] F-6: raw ID 노출 방지**
+>
+> - `DocumentDetailModal:218` — `{documentId}` 대신 `'요청하신 문서'`로 변경
+> - `RealTimeConsultationPage:2028,2049` — `card.id` fallback → `'제목없음'`으로 변경
+> - `RealTimeConsultationPage:2072` — synthetic `RAG-STEP1-0` → `ragCard.title || '정보 카드'`
+
+### 6. DB 단계별 작업 결과
+
+| 순서 | 작업 | 상태 | 변경 건수 |
+|------|------|------|----------|
+| D-12a | notice_53 테스트 레코드 삭제 | ✅ 완료 | 1건 삭제 + 62건 참조 정리 |
+| D-12b | dadungi_* 중복 문서 제거 | ✅ 완료 | 21건 삭제 (서울시다둥이 19건 유지) |
+| D-12c | 국민행복카드_18 ("없음") 삭제 | ✅ 완료 | 1건 삭제 |
+| D-12d | plumb_4_1 빈 제목 수정 | ✅ 완료 | 56건 제목 채움 |
+| D-13a | debit 172건 annual_fee → 0 | ✅ 완료 | 172건 |
+| D-13b | credit 89건 annual_fee structured 파싱 | ✅ 완료 | 89건 (12건 numeric, 21건 0원, 56건 default) |
+| D-13c | 이상값 3건 수정 (1원/5원 → 실제값) | ✅ 완료 | 3건 |
+| D-13d | performance_condition backfill | ✅ 완료 | 372건 |
+| D-14 | 커밋 | ✅ 완료 |
