@@ -941,3 +941,111 @@ ADD COLUMN related_document_type VARCHAR(50);
 - [ ] `DEV_MODE` 끄기 여부 결정 (`mockConfig.ts:11`) - mock 전환 UI 숨김
 - [ ] 브라우저 localStorage 초기화 여부 결정 (stale data 정리)
 - [ ] 로그인 테스트 계정 준비 (일반 상담원 + ADMIN-001)
+
+---
+
+## [Backend] ACW 고도화 + 자체 점검 결과 (2026-02-10)
+
+### 1. ACW AI 요약 상세화 + category_raw 자동 분류
+
+**커밋**: `26b27bf`, `c578020` (backend), `0c5ba93` (frontend)
+
+| 변경 | 이전 | 이후 |
+|------|------|------|
+| AI 요약 (result) | 1-2문장 (~50자) | 구조화 섹션: [처리 내역] / [고객 요청사항] / [상담사 조치] / [참고사항] |
+| category_raw | 비어있거나 대분류 중복 | 49개 세부 카테고리 중 LLM 자동 분류 |
+| SUMMARIZE_SYSTEM_PROMPT | category_main 키 오타 | JSON 문법 수정 + category_raw 필드 추가 |
+
+**수정 파일 (7개)**:
+- `backend/app/core/prompt.py` — 프롬프트 상세화
+- `backend/app/api/v1/endpoints/consultations.py` — SaveConsultationRequest + SQL
+- `backend/app/api/v1/endpoints/followup.py` — SaveConsultationRequest + ACW 로그
+- `backend/app/db/scripts/modules/update_customer.py` — categoryRaw 우선 저장
+- `frontend/src/app/pages/RealTimeConsultationPage.tsx` — LLM→localStorage
+- `frontend/src/app/pages/AfterCallWorkPage.tsx` — categoryRaw state + save
+- `frontend/src/types/consultation.ts` — 타입 확장
+
+### 2. 매뉴얼 점수 -5점 오판 원인 분석 + 수정
+
+**원인**: `FEEDBACK_SYSTEM_PROMPT`의 인사말 평가 기준이 모호함
+- 이전: `-5점: 첫인사 또는 마무리 멘트 누락` → 둘 중 하나만 빠져도 감점
+- GPT-4.1-mini가 "안녕하세요"를 정식 인사로 인정 안 하는 경우 발생
+
+**수정**:
+- 기준 완화: `-5점: 첫인사와 마무리 멘트 **모두 누락**한 경우에만 감점`
+- 예시 추가: 첫인사(안녕하세요, 감사합니다 OO카드입니다), 마무리(감사합니다, 좋은 하루 되세요)
+
+**Frontend/DB 전달 사항**:
+- 변경사항은 프롬프트 레벨이므로 Frontend/DB 수정 불필요
+- 서버 재시작만으로 즉시 반영
+
+### 3. RAG 검색 로그 추가
+
+**이전**: 실시간 통화 중 RAG 검색 결과가 로그로 남지 않음 (콘솔 print만)
+**이후**: `logs/rag/rag_YYYYMMDD.jsonl`에 매 발화마다 기록
+
+로그 항목:
+```json
+{
+  "ts": "2026-02-10T15:30:00",
+  "sid": "CS-001",
+  "query": "카드 분실 신고하려고요",
+  "routing": {"decision": "card_search", "matched": {...}},
+  "doc_count": 3,
+  "doc_titles": ["분실/도난 안내", ...]
+}
+```
+
+**핵심 로직 변경 없음** — call_websocket.py의 RAG 결과 전송 직후에 로그만 추가
+
+### 4. referenced_documents 파이프라인 검증 결과
+
+| 단계 | 상태 | 비고 |
+|------|------|------|
+| RAG 검색 → WebSocket 전송 | ✅ 정상 | `run_rag()` → `send_json({"type":"rag"})` |
+| Frontend 수신 → ragSteps 저장 | ✅ 정상 | RealTimeConsultationPage |
+| 통화 종료 → localStorage 저장 | ✅ 정상 | `referencedDocuments` 키 |
+| ACW 페이지 로드 | ✅ 정상 | localStorage에서 복원 |
+| 저장 API → DB | ✅ 정상 | `consultations.referenced_documents` JSONB |
+
+**발견된 이슈**: RAG 카드에 `id` 필드가 없으면 Frontend가 `RAG-STEP1-0` 같은 임시 ID 생성 → DB 저장 시 원본 문서 추적 불가
+
+**Frontend 전달 사항**:
+- RAG 카드의 `documentId`가 임시 ID인 경우, DocumentDetailModal에서 문서 내용을 찾을 수 없음
+- Backend RAG pipeline이 `doc_id`를 카드에 포함하도록 수정 필요 (Backend 담당)
+
+### 5. 전체 통합 점검 결과
+
+| 이슈 | 심각도 | 상태 | 담당 |
+|------|--------|------|------|
+| SUMMARIZE_SYSTEM_PROMPT category_main 키 오타 | CRITICAL | ✅ 수정 | Backend |
+| 매뉴얼 점수 인사말 오판 | CRITICAL | ✅ 수정 | Backend |
+| RAG 검색 로그 미존재 | WARNING | ✅ 추가 | Backend |
+| category_raw DB 컬럼 | INFO | ✅ 확인 (db_setup.sql에 존재) | DB |
+| feedbackScore→emotion_score 매핑 | WARNING | 보류 (현재 None 전달) | Backend |
+| RAG 카드 documentId 누락 | WARNING | 미해결 | Backend+Frontend |
+| DocumentDetailModal Backend fallback | WARNING | 미해결 | Frontend |
+
+### 6. 로그 기반 개선 추적 시스템
+
+**분석 스크립트**: `backend/logs/acw/analyze_acw_logs.py`
+
+서버 테스트 후 실행하면 자동 생성되는 개선 지표:
+
+| 지표 | 이전 (추정) | 목표 | 측정 방법 |
+|------|-------------|------|-----------|
+| AI 요약 평균 길이 | ~50자 | 200자+ | `result_length` |
+| 구조화 섹션 비율 | 0% | 90%+ | `result_has_sections` |
+| category_raw 유효 분류율 | 0% | 90%+ | 49개 목록 매칭 |
+| 인사말 오감점율 | ~30% (추정) | <5% | `intro_score` |
+| 평균 응답 시간 | - | <10초 | `parallel_time_sec` |
+
+### 7. 데모 전 필수 체크리스트 (Backend)
+
+- [ ] 서버 재시작 (프롬프트 변경 반영)
+- [ ] 실제 다이렉트콜 1건 수행 → ACW 페이지에서 구조화 요약 확인
+- [ ] `GET /api/v1/consultations/{id}` → `category_raw` 필드 확인
+- [ ] `logs/acw/` 로그 생성 확인
+- [ ] `logs/rag/` 로그 생성 확인
+- [ ] `analyze_acw_logs.py` 실행하여 개선 지표 확인
+- [ ] 매뉴얼 점수에서 인사말 감점 여부 재확인
