@@ -821,8 +821,123 @@ ADD COLUMN related_document_type VARCHAR(50);
 | **B-2** | `routing.matched` 구조 확인 | Frontend가 `routing.matched.card_names[]`, `routing.matched.actions[]`, `routing.matched.payments[]` 배열을 읽음. Backend RAG WebSocket 응답에서 이 구조가 맞는지 확인 |
 | **B-3** | 상담 상세 API `satisfaction_score` 반환 | `GET /api/v1/consultations/{id}` 응답에 `satisfaction_score` 필드 포함되는지 확인 (ConsultationDetailModal에서 별점 표시용) |
 
-### 미완료 항목
+### 미완료 항목 → 완료 (2026-02-10 12:00)
 
 | # | 항목 | 상태 | 비고 |
 |---|------|------|------|
-| 3 | 키보드 숏컷 + 칸반 업무지원 | TODO | Step 네비게이션(좌우 화살표), 업무지원 기능 구현 범위 결정 필요 |
+| 3 | 키보드 숏컷 + 칸반 업무지원 | **완료** | 전체 단축키 스펙 구현 (아래 상세) |
+
+---
+
+## Phase C 최종 작업 결과 (Frontend, 2026-02-10 12:00)
+
+> 커밋: `a2f3925` → `자체 점검 수정` (fix/responsive-layout 브랜치)
+
+### C-F7: 전역 키보드 숏컷 완전 구현 ✅
+
+**변경 파일**:
+- `frontend/src/hooks/useLayerNavigation.ts` - 전역 단축키 추가
+- `frontend/src/app/pages/RealTimeConsultationPage.tsx` - memoTextareaRef + 콜백 연결
+
+**구현된 전체 단축키 목록**:
+
+| 단축키 | 동작 | 동작 범위 |
+|--------|------|----------|
+| `← → ↑ ↓` | 2x2 카드 그리드 내 이동 | 카드 영역 |
+| `↑` (상단 경계) | 검색 레이어 전환 | 카드 영역 |
+| `↓` (하단 경계) | 칸반 레이어 전환 | 카드 영역 |
+| `←` (좌측 경계) | 이전 Step 전환 | 칸반 레이어 |
+| `→` (우측 경계) | 다음 Step 전환 | 칸반 레이어 |
+| `Ctrl+Shift+F` | 검색창 포커스 | **전역** (입력 필드 내에서도) |
+| `Ctrl+Shift+M` | 메모 텍스트 포커스 | **전역** |
+| `Ctrl+Shift+Enter` | 메모 저장 → 카드 영역 포커스 | **전역** |
+| `Ctrl+Shift+C` | 칸반 카드 영역 포커스 | **전역** |
+| `Space` | 레이어 전환 (kanban ↔ search) | 카드 영역 (입력 외) |
+| `Tab` | 레이어 전환 | 카드 영역 (입력 외) |
+| `Wheel` | 레이어 전환 (경계 lock) | 카드 영역 |
+| `Enter` (검색창) | 검색 실행 → 검색 레이어 → 카드 포커스 | 검색창 |
+| `ESC` | 포커스 해제 (검색/메모 모두) | 전역 |
+| `/` | 검색창 포커스 | 카드 영역 (입력 외) |
+| `Double Click` | 카드 상세 모달 | 카드 (InfoCard) |
+| `Ctrl+Enter` | 후처리 저장 | ACW 페이지 |
+
+**설계 원칙**:
+- `Ctrl+Shift+*` 전역 단축키는 입력 필드(input/textarea) 내에서도 동작
+- `Space`, `Tab`, 방향키는 입력 필드 외에서만 동작 (입력 간섭 방지)
+- `ESC`는 검색창/메모 blur만 처리 (모달 닫기는 각 컴포넌트 자체 처리)
+
+### C-F8: DB 팀 요구사항 반영 ✅
+
+| 항목 | 상태 | 수정 내용 |
+|------|------|----------|
+| **F-1** (doc_id 필드) | ✅ 정상 | `ConsultationDetailModal:204` - `doc.doc_id` 올바르게 읽음 |
+| **결정 4** (DocumentDetailModal) | ✅ 정상 | `documentData` prop 우선 → mock fallback 구조 |
+| **F-3** (SimulationPage API) | **수정 완료** | `localStorage/mock` → `fetchConsultations()` API 호출로 변경 |
+| **F-4** (FAQ modal mock) | **수정 완료** | `FrequentInquiryModal`에서 `fetchFrequentInquiryById()` API 직접 호출 |
+
+### C-F9: 자체 점검 이슈 수정 ✅
+
+코드 리뷰에서 발견된 CRITICAL 이슈 3건 수정:
+
+| 이슈 | 심각도 | 수정 내용 |
+|------|--------|----------|
+| `useLayerNavigation.ts`: `boundaryTimeoutRef`가 useEffect 의존성 배열에 포함 (불필요한 re-render) | CRITICAL | 의존성 배열에서 제거 + cleanup에 `boundaryTimeoutRef` 정리 추가 |
+| `FrequentInquiryModal.tsx`: API 로딩 중 빈 화면 (null 렌더링) | CRITICAL | 로딩 스피너 추가 + `detail?.relatedDocument` null-safe 조건부 렌더링 |
+| `SimulationPage.tsx`: `as any` 타입 캐스트 (타입 안전성 저하) | CRITICAL | `ConsultationItem[]` 타입 명시 + `as any` 제거 |
+
+---
+
+## Backend 팀 전달 사항 (2026-02-10 12:00)
+
+### 기존 확인 필요 항목 (B-1, B-2, B-3)
+
+이전 Phase C에서 전달한 아래 항목의 확인 상태를 요청합니다:
+
+| # | 항목 | 상태 |
+|---|------|------|
+| **B-1** | `feedbackScore` / `satisfactionScore` POST 저장 | ⏳ 확인 필요 |
+| **B-2** | `routing.matched.{card_names[], actions[], payments[]}` 구조 | ⏳ 확인 필요 |
+| **B-3** | GET `/api/v1/consultations/{id}` → `satisfaction_score` 포함 | ⏳ 확인 필요 |
+
+### 신규 확인 필요 항목
+
+| # | 항목 | 설명 |
+|---|------|------|
+| **B-4** | `is_best_practice` 필드 API 포함 여부 | `GET /api/v1/consultations` 목록 응답에 `is_best_practice` (→ camelCase `isBestPractice`) 필드가 포함되는지 확인. SimulationPage에서 우수 사례 필터링에 사용 |
+| **B-5** | `fetchFrequentInquiryById` 응답 shape | `GET /api/v1/frequent-inquiries/{id}` 응답에 `content`, `relatedDocument.title`, `relatedDocument.summary`, `relatedDocument.regulation`, `relatedDocument.document_id` 필드 포함 확인 |
+
+### Frontend ↔ Backend 연동 잔여 항목
+
+| # | 작업 | 의존 | 상태 |
+|---|------|------|------|
+| C-F1 | FAQ 관련문서 실 ID 클릭 → 문서 상세 모달 E2E | B-5 + DB C-D1 | ⏳ |
+| C-F2 | RAG 카드 `sourceTable` 활용 | Backend C-B1 반영 확인 | ⏳ |
+| C-F3 | 문서 상세 조회 API 연동 (`GET /api/v1/documents/{id}`) | Backend C-B5 | ⏳ (선택) |
+
+---
+
+## 라이브 데모 사전 점검 (2026-02-10 12:00)
+
+### 빌드 상태
+- **TS 에러**: 0건 ✅
+- **빌드 경고**: chunk size만 (2,092KB, gzip 599KB) - 정상 범위
+- **빌드 시간**: ~43초
+
+### 점검 결과 요약 (8.5/10)
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| WebSocket URL 자동 감지 | ✅ 10/10 | localhost/ngrok 자동 전환 |
+| API URL 자동 감지 | ✅ 10/10 | `config.ts` resolveBaseUrl() |
+| 라우터/네비게이션 | ✅ 10/10 | 17개 경로 모두 정상 |
+| localStorage 관리 | ✅ 9/10 | 30개 키, 충돌 없음 |
+| 에러 핸들링 | ✅ 8/10 | graceful fallback 동작 |
+| Mock/Real 전환 | ✅ 9/10 | `USE_MOCK_DATA` + `DEV_MODE` |
+| 빌드 품질 | ✅ 9/10 | TS 에러 0, 경고만 chunk size |
+
+### 데모 전 필수 체크
+
+- [ ] Backend `/api/v1` 엔드포인트 실행 확인 (localhost:8000 또는 ngrok)
+- [ ] `DEV_MODE` 끄기 여부 결정 (`mockConfig.ts:11`) - mock 전환 UI 숨김
+- [ ] 브라우저 localStorage 초기화 여부 결정 (stale data 정리)
+- [ ] 로그인 테스트 계정 준비 (일반 상담원 + ADMIN-001)
