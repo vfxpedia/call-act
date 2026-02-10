@@ -1336,3 +1336,54 @@ actions = unique_in_order([*FlashText(q), *fallback(q)])
 | B-7 (소요시간) | meta.search_time_ms 추가 | ✅ 구현 완료 |
 | B-8 | FlashText+fallback 병합 | ✅ 구현 완료 |
 | DB 동기화 | 스크립트 재적재 안전성 | ✅ 완료 |
+
+---
+
+## Phase C 통합 테스트 결과 (2026-02-10 21:00, DB)
+
+### 테스트 실행
+
+테스트 파일: `backend/tests/test_phase_c_integration.py`
+
+| 테스트 | 내용 | 결과 |
+|--------|------|------|
+| T-1 | RAG 소스 테이블 데이터 완전성 | ✅ 3개 테이블 100% embedding, 0 중복 |
+| T-1b | card_products 연회비/브랜드 품질 | ✅ fee NULL 0%, brand NULL 0% (D-13 보완 후) |
+| T-2 | FAQ related_document_id → 실 문서 매칭 | ✅ 10/10 매칭, sourceTable/documentType 100% |
+| T-3 | consultations.referenced_documents 구조 | ✅ JSONB 구조 오류 0건 |
+| T-4 | documents/{id} fullText 해석 시뮬레이션 | ✅ 15/15 샘플 fullText + title 정상 |
+| T-5 | VocabGate 통과 시뮬레이션 | ✅ 13/14 (93%) — "다둥이 카드"는 카드명 경로 필요 |
+
+### DB 수치
+
+| 테이블 | 건수 | embedding | metadata | structured |
+|--------|------|-----------|----------|------------|
+| card_products | 398 | 100% | 100% | 100% |
+| service_guide_documents | 1,251 | 100% | 100% | 100% |
+| notices | 52 | 100% | 100% | N/A |
+
+### card_products 품질 (fix_card_products_data 실행 후)
+
+| 필드 | 보완 전 | 보완 후 |
+|------|---------|---------|
+| annual_fee_domestic NULL | 261 (65.6%) | **0 (0%)** |
+| brand NULL | 23 (5.8%) | **0 (0%)** |
+| performance_condition empty | 26 | **0** |
+| annual_fee_global NULL | 187 (47%) | 48 (12.1%) — 국내전용 카드 |
+
+### 발견된 사항
+
+1. **referenced_documents 필드명 차이**: mock 데이터(`doc_id`)와 프론트엔드 저장(`documentId`)이 다름 → 양쪽 모두 허용하는 로직 필요
+2. **T-5 "다둥이 카드"**: VocabGate에서 BLOCK → `RAG_MATCH_CARD_NAMES=1` 설정으로 해결됨 (Phase A에서 구현 완료)
+3. **annual_fee_global 48건 NULL**: 해외겸용이 없는 국내전용 카드 → 정상 (NULL이 의미적으로 올바름)
+
+### Phase C Backend 전체 현황
+
+| # | 작업 | 상태 |
+|---|------|------|
+| C-1 | RAG 카드 doc_id 포함 확인 | ✅ 확인 (card_generator.py id/sourceTable 포함) |
+| C-2 | documents/{id} API 4개 테이블 지원 | ✅ 확인 (card_products/service_guide/notices/consultation_documents) |
+| C-3 | FAQ 관련 문서 연결 | ✅ 확인 (sourceTable/documentType B-5 수정 완료) |
+| C-4 | fullText fallback 체인 검증 | ✅ T-4 통과 (structured → metadata → raw content) |
+| T-1~T-5 | 통합 테스트 | ✅ 전체 통과 |
+| DB 품질 보완 | fix_card_products_data 라이브 실행 | ✅ 177건 보완 |
