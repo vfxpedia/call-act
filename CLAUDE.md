@@ -33,48 +33,92 @@ main (프로덕션, GitActions 자동 배포)
 
 ## 현재 작업 상태 (각 세션이 업데이트)
 
-### Backend (최종 업데이트: 2026-02-09)
+### Backend (최종 업데이트: 2026-02-10 15:30)
 - [x] 로컬 E2E 전환 완료 (RunPod → 워크스테이션)
 - [x] AWQ 양자화 (kanana-8B, analysis)
 - [x] 플러거블 STT/TTS 아키텍처
 - [x] STT/TTS 엔진 전환 UI + Settings API
 - [x] 한국어 TTS 전처리 모듈
 - [x] ngrok 외부 접속
+- [x] Level 02: whisper 할루시네이션 필터 강화, prompt [메모] 추가, 유사도 점수 실제화, 상담 저장 API 안정화
+- [x] D-2: card_generator.py LLM 환각 방지 (_DB_PROTECTED_FIELDS)
 - [ ] Vercel + EC2 배포 연결
+- [ ] **F-8 실데이터**: FeedbackModal 닫기 시 기본 피드백 저장 검토 (아래 전달사항 참고)
 
-### Frontend (최종 업데이트: 2026-02-10) 🟢 세션 활성
+### Frontend (최종 업데이트: 2026-02-10 16:30) 🟢 세션 활성
 - [x] Level 01: 문서 타입 표시, 키보드 단축키, 피드백 모달, 문서 상세보기 개선
-- [x] Level 02 Phase 1 전체 완료 (6건):
-  - [x] F-1: 대시보드 시뮬레이션 scenarioId 매핑 (SIM-001→scenario-1)
-  - [x] F-3: 대시보드 메인 텍스트 → AI 요약 첫줄 표시
-  - [x] F-4: 참조 문서 유사도 순 정렬 (상세보기 + 후처리)
-  - [x] F-5: 포커싱 링 잘림 수정 (ring → outline)
-  - [x] F-6: 검색 레이어 카드 키보드 포커싱 + Enter 상세보기
-  - [x] F-7: 상담 ID 클립보드 복사 버튼
+- [x] Level 02 Phase 1 전체 완료 (6건): F-1, F-3~F-7
 - [x] 검색 유사도 하드코딩 제거 (searchSimulator.ts → 백엔드 실제 점수 사용)
-- [x] 문서 상세보기 fullText 렌더링 개선 (convertToMarkdown 한국어 전처리)
-- [x] F-8: Mock 피드백 데이터 표시 — DB에 이미 존재 확인 (populate_extended_fields.py)
+- [x] 상담 상세 모달: transcript/referenced_documents 필드 매핑 수정
 - [x] F-2/B-1: [메모] 섹션 AI 요약 — 프롬프트에 이미 포함 확인 (prompt.py:324)
+- [x] **F-8**: FeedbackModal onClose/ESC/오늘보지않기 시 기본 feedbackScores localStorage 저장 완료
 
-### Data (최종 업데이트: )
-- (Data 세션이 여기에 기록)
+### Data (최종 업데이트: 2026-02-10 16:30)
+- [x] D-3/M-2 지원: card_products 키워드 현황 분석 완료
+  - Phase B에서 398건 전체 100% 키워드 채움 (이전 49% 없음 → 해결됨)
+  - 품질 문제: 범용 키워드 과다(혜택 85%, 연회비 81%), 범용만 있는 카드 10건
+  - keyword_dictionary 교차: 65개 중 26개만 매칭(40%), 39개 미등록
+- [x] D-4/D-1: fullText 전처리 중기 계획 수립
+  - DB 분석: structured.detailContent가 이미 요약본 제공 (1251/1251, 398/398)
+  - content 원본은 '#' 헤더, 중복 텍스트 포함 → 중기 정리 대상
+  - 중기 계획: 마크다운 보존, 중복 제거, 원본 포맷(표/목록) 보존
+- [x] D-5: CLAUDE.md Data 섹션 업데이트
+- [ ] keyword_dictionary 보강: card_products 전용 키워드 39개 등록 대기 (M-2 결과에 따라)
 
-### AI/ML 팀장 (최종 업데이트: 2026-02-10) 🟢 세션 활성
+### AI/ML 팀장 (최종 업데이트: 2026-02-10 16:00) 🟢 세션 활성
 - [x] 프로젝트 합류 및 전체 현황 파악 완료
-- [x] Level 2 고도화 문서(`02_LEVEL02_DISCUSSION.md`) 검토 완료
-- [x] Phase 2 전체 완료: B-1 이미 적용 확인, D-2 환각 아님 확인, F-8 DB 데이터 존재 확인
-- [x] 문서 상세보기/FAQ/피드백/Transcript 버그 수정 및 배포
+- [x] Level 02 Phase 1-2: B-1 확인, D-2 수정 완료, F-8 Mock OK / 실데이터 조사 완료
+- [x] STT 에코 방지, 상담 상세 모달 수정, 유사도 점수 실제화, Admin/Stats 빈화면 수정
+- [ ] **F-8 실데이터 피드백 저장 흐름 수정** ← 현재 진행 중
 - [ ] **Phase 3 M-1**: STT 비교 테스트 실행 (Whisper-1 / Qwen3-ASR / VibeVoice)
 - [ ] **Phase 3 M-2**: 키워드 추출 개선 설계
 - [ ] **Phase 3 M-3**: RAG 검색 품질 개선 (M-1, M-2 이후)
 
-#### 📋 각 세션 전달사항 (2026-02-10)
+#### 📋 각 세션 전달사항 (2026-02-10 16:00 갱신)
 > 모든 세션은 `docs/levelup/02_LEVEL02_DISCUSSION.md`를 기준으로 작업합니다.
+> **작업 완료 시 반드시** 이 섹션과 Discussion 문서 "진행 이력"에 타임스탬프와 함께 기록해주세요.
 
-- **Backend에게**: ~~B-1 ([메모] 프롬프트 추가) 즉시 처리 부탁합니다.~~ ✅ 이미 적용 확인. ~~D-2 (참조 문서 환각) 원인 조사 시 M 세션과 협의 필요.~~ ✅ 조사 완료 (환각 아님).
-- **Frontend에게**: ~~Phase 1 잔여 작업(F-6 검색 포커싱, F-7 복사 버튼) 진행 상황 CLAUDE.md에 업데이트 부탁합니다.~~ ✅ Phase 1 전체 완료 (6건). ~~타팀 의존 항목(F-2, F-8) 대기 중.~~ ✅ F-2, F-8 모두 완료 확인.
-- **Data에게**: ~~F-8 Mock 피드백 데이터 준비~~ ✅ DB에 이미 존재. D-1 fullText 전처리 중기 계획 검토 부탁합니다.
-- **전체**: Phase 1-2 완료! **Phase 3 (STT/키워드/RAG)** 진입. M-1 STT 비교 테스트, M-2 키워드 추출 개선이 최우선.
+---
+
+##### Backend에게 (즉시 착수)
+> M-1 대기 불필요. 인프라 확인 작업이 있습니다.
+
+| # | 작업 | 상세 | 상태 |
+|---|------|------|------|
+| B-1 | ~~[메모] 프롬프트~~ | prompt.py | ✅ 완료 |
+| B-2 | ~~D-2 환각 방지~~ | card_generator.py `_DB_PROTECTED_FIELDS` | ✅ 완료 |
+| **B-3** | **M-1 인프라: Qwen3-ASR 동작 확인** | 포트 8104 서버 상태 + `POST /api/v1/settings/stt-engine` {"engine":"qwen3-asr"} 호출 테스트 | 🔲 즉시 |
+| **B-4** | **M-1 인프라: 시나리오 오디오 파일 확인** | 시나리오 1~8 오디오 파일 위치 확인 (TTS 생성분 또는 녹음본), 없으면 생성 필요 여부 M에게 보고 | 🔲 즉시 |
+
+##### Frontend에게 (즉시 착수)
+> **M-1은 Frontend 작업이 아닙니다.** STT 비교는 AI/ML+Backend에서 진행합니다. 대기하지 마세요.
+
+| # | 작업 | 상세 | 상태 |
+|---|------|------|------|
+| F-1~7 | ~~Phase 1 UI/UX~~ | 6건 전체 | ✅ 완료 |
+| **F-8** | **FeedbackModal 닫기 시 기본값 저장** | 파일: `frontend/src/app/components/modals/FeedbackModal.tsx`. 현재: "확인"만 feedbackScores 저장 → "닫기"/"오늘보지않기" 시 NULL. 수정: onClose 호출 전에 기본값 `{feedbackScore:70, satisfactionScore:3, sentiment:'neutral', feedbackEmotions:['neutral','neutral','neutral'], feedbackText:''}` 을 localStorage에 저장 | 🔲 즉시 |
+
+##### Data에게 (완료 보고)
+> F-8 backfill은 10건뿐이라 AI/ML에서 직접 처리합니다. 스크립트 불필요.
+
+| # | 작업 | 상세 | 상태 |
+|---|------|------|------|
+| ~~D-3~~ | ~~M-2 지원: 키워드 품질 분석~~ | Phase B에서 100% 채움 확인. 품질 문제: 범용 과다(10건), 사전 미등록 39개 | ✅ 2026-02-10 16:30 |
+| ~~D-4~~ | ~~D-1 fullText 전처리 계획~~ | structured.detailContent 이미 활용 가능. 중기: 마크다운 보존/중복 제거 | ✅ 2026-02-10 16:30 |
+| ~~D-5~~ | ~~CLAUDE.md Data 섹션 업데이트~~ | Data 섹션 작업 현황 기록 완료 | ✅ 2026-02-10 16:30 |
+| **D-6** | **keyword_dictionary 보강** | card_products 전용 키워드 39개 등록 (주유, 교통, 간편결제, 쇼핑 등). M-2 설계 결과에 따라 진행 | 🔲 M-2 이후 |
+
+##### AI/ML 팀장 (본인, 즉시 착수)
+| # | 작업 | 상태 |
+|---|------|------|
+| **M-0** | F-8 실데이터 10건 backfill (DB 직접 처리) | 🔲 즉시 |
+| **M-1** | STT 비교 테스트 설계 + 실행 (Backend 인프라 확인 후) | 🔲 오늘 |
+| **M-2** | 키워드 추출 개선 설계 (Data 분석 결과 받은 후) | 🔲 이번 주 |
+
+---
+
+- **전체**: Phase 1-2 완료. F-8 잔여 + **Phase 3 (STT/키워드/RAG)** 병렬 진행 중
+- **작업 규칙**: 완료 시 CLAUDE.md 본인 섹션 + Discussion 진행이력에 `날짜 시:분` 타임스탬프 필수
 
 ## 로컬 모델 서빙 (워크스테이션 전용)
 
