@@ -1153,3 +1153,78 @@ guide_general (216건)
 | D-13c | 이상값 3건 수정 (1원/5원 → 실제값) | ✅ 완료 | 3건 |
 | D-13d | performance_condition backfill | ✅ 완료 | 372건 |
 | D-14 | 커밋 | ✅ 완료 |
+
+---
+
+## [Frontend → Backend] RAG 카드 유사도/소요시간 표시 요청 (2026-02-10 14:30)
+
+### 배경
+
+프론트엔드 InfoCard에 **문서 유사도(relevanceScore)**와 **검색 소요시간(searchTimeMs)** 표시 UI를 준비 완료했습니다. Backend에서 해당 값을 RAG 응답에 포함시켜 주시면 즉시 표시됩니다.
+
+### B-6: RAG 카드에 `relevanceScore` 필드 추가 요청
+
+**현재 상태**:
+- `card_generator.py`의 `_CARD_FIELDS`에 `relevanceScore`가 **포함되어 있지 않음**
+- 검색 파이프라인(`search.py`, `retrieve.py`)에서 `doc["score"]` (0.0~1.0)를 계산하고 있으나 카드 응답에 전달하지 않음
+
+**요청 사항**:
+1. `_CARD_FIELDS` 튜플에 `"relevanceScore"` 추가
+2. `_doc_to_card_base()` 또는 `_to_front_card()`에서 `doc.get("score", 0)` → `relevanceScore` 필드로 변환
+3. 값 스케일: **0-100 정수** (Frontend 표시용). 현재 `score`가 0.0-1.0이면 `int(score * 100)`으로 변환
+
+**Frontend 수신 경로** (이미 준비됨):
+```
+Backend doc.score → RAG card.relevanceScore → WebSocket → normalizeRAGCard() → ScenarioCard.relevanceScore → InfoCard UI
+```
+
+**관련 파일**:
+- `backend/app/llm/rag_llm/card_generator.py`: `_CARD_FIELDS` (line 33-47), `_doc_to_card_base()`
+- `backend/app/api/v1/endpoints/rag_frontend.py`: `_to_front_card()` (line 18-43)
+
+### B-7: RAG 응답 `meta`에 `search_time_ms` 추가 요청
+
+**현재 상태**:
+- `search.py:181`에서 `elapsed_ms` 계산
+- `card_pipeline.py:309,326`에서 `t_cards`, `t_post` 계산
+- `meta` dict에는 `model`, `doc_count`, `context_chars`만 포함
+
+**요청 사항**:
+1. `card_pipeline.py`의 `build_card_response()` 반환값 `meta`에 `search_time_ms` 추가
+2. 계산: `int((t_retrieve - t_start) * 1000)` (전체 검색 소요시간, ms 정수)
+
+```python
+# card_pipeline.py 수정 예시
+"meta": {
+    "model": config.model,
+    "doc_count": len(docs),
+    "context_chars": 0,
+    "search_time_ms": int((t_retrieve - t_start) * 1000),  # 추가
+}
+```
+
+**Frontend 수신 경로** (이미 준비됨):
+```
+Backend meta.search_time_ms → WebSocket → RAGResponse.meta.search_time_ms → ragSteps[].searchTimeMs → ScenarioCard.searchTimeMs → InfoCard UI
+```
+
+### Frontend 준비 완료 내역
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `types.ts` | `ScenarioCard`에 `searchTimeMs?: number` 추가 |
+| `useVoiceRecoders.ts` | `RAGResponse.meta`에 `search_time_ms?: number` 추가 |
+| `RealTimeConsultationPage.tsx` | ragSteps에 `searchTimeMs` 저장 + 카드 변환 시 전달 |
+| `InfoCard.tsx` | 유사도 표시 (80%+ 초록, 50%+ 노랑, 미만 빨강) + 검색 시간 표시 |
+
+**InfoCard 표시 형태**:
+- 유사도: `유사도 85%` (초록), `유사도 45%` (노랑), `유사도 20%` (빨강)
+- 소요시간: `검색 234ms` 또는 `검색 1.2s` (1초 이상 시)
+- Backend에서 값을 보내지 않으면 (0 또는 undefined) 해당 UI는 자동으로 숨김
+
+### 우선순위
+
+| 항목 | 구현 난이도 | 사용자 가치 |
+|------|-----------|-----------|
+| B-6 (유사도) | 낮음 (1줄 추가) | 높음 (검색 품질 투명성) |
+| B-7 (소요시간) | 낮음 (1줄 추가) | 중간 (성능 모니터링) |
