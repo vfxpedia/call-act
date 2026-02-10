@@ -1258,3 +1258,81 @@ Backend meta.search_time_ms → WebSocket → RAGResponse.meta.search_time_ms �
 - `backend/app/llm/rag_llm/card_generator.py` — _CARD_FIELDS + _doc_to_card_base에 relevanceScore
 - `backend/app/rag/pipeline/card_pipeline.py` — meta에 search_time_ms
 - `backend/app/api/v1/endpoints/rag_frontend.py` — _to_front_card에 sourceTable + relevanceScore
+
+---
+
+## [Backend] Phase B 추가 작업 결과 (2026-02-10 18:00)
+
+### B-5 수정: FAQ API SELECT 쿼리 버그 수정 ✅
+
+**문제**: `frequent_inquiries.py`의 두 SELECT 쿼리에 `related_source_table`, `related_document_type` 컬럼이 누락
+→ API 응답에서 `sourceTable`/`documentType`이 항상 null
+
+**수정**: 목록 조회 + 상세 조회 쿼리에 두 컬럼 추가
+- `backend/app/api/v1/endpoints/frequent_inquiries.py`: 2개 SELECT 쿼리 수정
+- `backend/app/db/scripts/db_setup.sql`: frequent_inquiries CREATE TABLE에 누락 컬럼 추가
+
+### B-8: FlashText + fallback 항상 병합 (STT 키워드 추출 핵심) ✅
+
+**문제**: STT 전사 결과에서 compound word 키워드가 누락
+- "포인트적립" → FlashText greedy L→R 소비로 "포인트"만 추출, "적립" 누락
+- FlashText가 1개라도 찾으면 `_fallback_contains`(substring match) 건너뜀
+
+**수정**: `extract_signals()` FlashText 경로에서 항상 `_fallback_contains`를 병합
+```python
+# 이전: FlashText 실패 시에만 fallback
+actions = FlashText(q)
+if not actions: actions = fallback(q)
+
+# 이후: 항상 병합 (B-8)
+actions = unique_in_order([*FlashText(q), *fallback(q)])
+```
+
+**효과**: 4개 카테고리(card_names, actions, payments, weak_intents) 모두 compound word 복원
+- "포인트적립" → `["포인트", "적립"]` (이전: `["포인트"]`)
+- "리볼빙이자" → `["리볼빙", "이자"]` (이전: `["이자"]`)
+
+**추가**: Vocab Gate 로깅 + 차단 시 안내 메시지
+- `has_vocab_match()` → DEBUG 로그 추가 (차단된 쿼리 추적)
+- `pipeline.py` → 차단 시 `guide_script.message: "무엇을 도와드릴까요?"` 반환
+
+**변경 파일**:
+- `backend/app/rag/router/signals.py` — FlashText+fallback 병합 + VocabGate 로깅
+- `backend/app/rag/pipeline/pipeline.py` — 차단 시 메시지 + INFO 로그
+
+### DB 스크립트 동기화 + 오케스트레이터 연결 ✅
+
+**GAP 분석 결과**: 재적재 시 3가지 문제 발견 후 수정
+
+| GAP | 문제 | 수정 |
+|-----|------|------|
+| 1 (HIGH) | `fix_card_products_data` 오케스트레이터 미연결 → 연회비 261건 NULL | `01a`에 호출 추가 |
+| 2 (MEDIUM) | backend_dev↔backend 모듈 drift | 4개 파일 동기화 |
+| 3 (LOW) | performance_condition structured→top-level 미추출 | fix 스크립트에 D-13 로직 통합 |
+
+**fix_card_products_data.py 강화**:
+- 체크카드(debit) → 연회비 0 자동 설정
+- 신용카드 → `structured.annualFee.domestic`에서 우선 파싱 (D-13 검증 로직)
+- `structured.performanceConditions` → `performance_condition` 추출
+- `01a_setup_callact_db.py` Step 5-1에 자동 호출 연결
+
+**동기화 파일**:
+- `01a_setup_callact_db.py`: fix_card_products_data 호출 추가
+- `fix_card_products_data.py`: D-13 로직 통합 (structured JSONB 기반)
+- `load_frequent_inquiries.py`: Phase C CATEGORY_CONTENT_MAP + sourceTable 동기화
+- `populate_extended_fields.py`: quality_score + 실제 문서 ID 참조 동기화
+
+### Phase B Backend 전체 현황
+
+| # | 작업 | 상태 |
+|---|------|------|
+| B-1 | feedbackScore/satisfactionScore POST | ✅ 확인 완료 |
+| B-2 | routing.matched 구조 | ✅ 확인 완료 |
+| B-3 | satisfaction_score GET 응답 | ✅ 확인 완료 |
+| B-4 | is_best_practice 목록 포함 | ✅ 확인 완료 |
+| B-5 | FAQ API SELECT 버그 수정 | ✅ 수정 완료 |
+| B-6 (특수카드) | scope 필터 적용 | ✅ 적용 완료 |
+| B-6 (유사도) | relevanceScore 카드 추가 | ✅ 구현 완료 |
+| B-7 (소요시간) | meta.search_time_ms 추가 | ✅ 구현 완료 |
+| B-8 | FlashText+fallback 병합 | ✅ 구현 완료 |
+| DB 동기화 | 스크립트 재적재 안전성 | ✅ 완료 |
