@@ -1,4 +1,4 @@
-import { Play, Pause, User, Clock, CheckCircle, FileText, Download, X, Loader2 } from 'lucide-react';
+import { Play, Pause, User, Clock, CheckCircle, FileText, Download, X, Loader2, MessageSquare, ArrowLeft, Star, Copy, Check } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useState, useRef, useEffect } from 'react';
 import { formatBirthDateWithAge } from '@/utils/age';
@@ -31,12 +31,15 @@ export default function ConsultationDetailModal({ isOpen, onClose, consultation 
   const [duration, setDuration] = useState(327); // 5분 27초
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [selectedDocumentData, setSelectedDocumentData] = useState<{ title: string; content: string; fullText?: string; sourceTable?: string } | null>(null);
   const [isRecordingDownloadWarningModalOpen, setIsRecordingDownloadWarningModalOpen] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // ⭐ DB에서 가져온 상세 데이터 (Real 모드에서만 사용)
   const [detailFromDB, setDetailFromDB] = useState<ConsultationDetail | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
 
   // ⭐ 상담 상세 데이터 로드 (Real 모드에서만)
   useEffect(() => {
@@ -188,22 +191,38 @@ export default function ConsultationDetailModal({ isOpen, onClose, consultation 
       }));
     }
     // 2순위: transcript에서 agent 메시지 추출 (fallback)
-    if (db?.transcript?.messages && db.transcript.messages.length > 0) {
-      return db.transcript.messages
-        .filter(m => m.speaker === 'agent')
+    // transcript 포맷: {"messages": [...]} (dict) 또는 [...] (flat array)
+    const messages = db?.transcript
+      ? (Array.isArray(db.transcript) ? db.transcript : db.transcript.messages || [])
+      : [];
+    if (messages.length > 0) {
+      return messages
+        .filter((m: any) => m.speaker === 'agent')
         .slice(0, 5)
-        .map(m => ({ time: m.timestamp, action: m.message }));
+        .map((m: any) => ({ time: m.timestamp, action: m.message }));
     }
     return mockDetailData.actions;
   };
 
   const getDocumentsFromDB = () => {
     if (db?.referenced_documents && db.referenced_documents.length > 0) {
-      return db.referenced_documents.map((doc, idx) => ({
-        id: doc.doc_id || `doc-${idx}`,
-        title: doc.title || `참조 문서 ${idx + 1}`,
-        content: doc.doc_type || '문서',
-      }));
+      const docs = db.referenced_documents.map((doc: any, idx: number) => {
+        const docType = doc.documentType || doc.doc_type || '';
+        const docLabel = docType === 'guide' ? '서비스 가이드' :
+                         docType === 'product-spec' ? '카드 상품' :
+                         docType === 'notice' ? '공지사항' :
+                         docType === 'faq' ? 'FAQ' : '문서';
+        return {
+          id: doc.documentId || doc.doc_id || `doc-${idx}`,
+          title: doc.title || `참조 문서 ${idx + 1}`,
+          content: docLabel,
+          fullText: '',
+          relevanceScore: doc.relevanceScore ?? 0,
+          sourceTable: doc.sourceTable,
+        };
+      });
+      // 유사도 높은 순 정렬
+      return docs.sort((a: any, b: any) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
     }
     return mockDetailData.documents;
   };
@@ -237,15 +256,41 @@ export default function ConsultationDetailModal({ isOpen, onClose, consultation 
         <div className="bg-gradient-to-r from-[#0047AB] to-[#4A90E2] p-3 text-white flex-shrink-0">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-base font-bold mb-0.5">상담 상세 정보</h2>
-              <p className="text-[11px] opacity-90 font-mono">{consultation.id}</p>
+              <h2 className="text-base font-bold mb-0.5">{showFeedback ? '피드백 상세' : '상담 상세 정보'}</h2>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[11px] opacity-90 font-mono">{consultation.id}</p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(consultation.id);
+                    setIdCopied(true);
+                    setTimeout(() => setIdCopied(false), 1500);
+                  }}
+                  className="text-white/70 hover:text-white hover:bg-white/20 p-0.5 rounded transition-colors"
+                  title="상담 ID 복사"
+                >
+                  {idCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                </button>
+              </div>
             </div>
-            <button 
-              onClick={onClose}
-              className="text-white hover:bg-white/20 p-1.5 rounded transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              {/* 피드백 보기 / 돌아가기 토글 */}
+              <button
+                onClick={() => setShowFeedback(!showFeedback)}
+                className="flex items-center gap-1 text-white hover:bg-white/20 px-2 py-1.5 rounded transition-colors text-[11px] font-medium"
+              >
+                {showFeedback ? (
+                  <><ArrowLeft className="w-3.5 h-3.5" />상담 정보</>
+                ) : (
+                  <><MessageSquare className="w-3.5 h-3.5" />피드백 보기</>
+                )}
+              </button>
+              <button
+                onClick={onClose}
+                className="text-white hover:bg-white/20 p-1.5 rounded transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Status Badge */}
@@ -274,6 +319,117 @@ export default function ConsultationDetailModal({ isOpen, onClose, consultation 
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-2.5 sm:p-3">
+          {/* 피드백 뷰 */}
+          {showFeedback && (
+            <div className="space-y-4">
+              {/* 만족도 점수 */}
+              <div className="bg-gradient-to-br from-[#F8FBFF] to-white rounded-lg p-4 border border-[#0047AB]/15">
+                <h3 className="text-sm font-bold text-[#0047AB] mb-3 flex items-center gap-2">
+                  <span>📊</span> 상담 평가 점수
+                </h3>
+                <div className="flex items-center gap-6">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-[#0047AB]">{detailData.satisfaction}</div>
+                    <div className="flex gap-0.5 mt-1 justify-center">
+                      {[...Array(5)].map((_, i) => (
+                        <span key={i} className={`text-lg ${i < detailData.satisfaction ? 'text-[#FBBC04]' : 'text-[#E0E0E0]'}`}>★</span>
+                      ))}
+                    </div>
+                    <div className="text-[10px] text-[#999] mt-1">고객 만족도</div>
+                  </div>
+                  {db?.emotion_score != null && (
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-[#34A853]">{db.emotion_score}</div>
+                      <div className="text-[10px] text-[#999] mt-1">감정 점수</div>
+                    </div>
+                  )}
+                  {db?.sentiment && (
+                    <div className="text-center">
+                      <div className={`text-lg font-bold px-3 py-1 rounded-full ${
+                        db.sentiment === 'positive' ? 'bg-[#E8F5E9] text-[#34A853]' :
+                        db.sentiment === 'negative' ? 'bg-[#FFEBEE] text-[#EA4335]' :
+                        'bg-[#F5F5F5] text-[#666]'
+                      }`}>
+                        {db.sentiment === 'positive' ? '긍정' : db.sentiment === 'negative' ? '부정' : '중립'}
+                      </div>
+                      <div className="text-[10px] text-[#999] mt-1">감정 분석</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 감정 변화 */}
+              {db?.feedback_emotions && db.feedback_emotions.length > 0 && (
+                <div className="bg-white rounded-lg p-4 border border-[#E0E0E0]">
+                  <h3 className="text-sm font-bold text-[#333] mb-3 flex items-center gap-2">
+                    <span>🎭</span> 고객 감정 변화
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    {db.feedback_emotions.map((emotion, i) => (
+                      <div key={i} className="flex items-center gap-1.5">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                          emotion === '긍정' || emotion === 'positive' ? 'bg-[#E8F5E9] text-[#34A853]' :
+                          emotion === '부정' || emotion === 'negative' ? 'bg-[#FFEBEE] text-[#EA4335]' :
+                          'bg-[#F5F5F5] text-[#666]'
+                        }`}>
+                          {i === 0 ? '초반' : i === 1 ? '중반' : '후반'}: {emotion}
+                        </span>
+                        {i < db.feedback_emotions!.length - 1 && (
+                          <span className="text-[#999]">→</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* AI 피드백 텍스트 */}
+              {db?.feedback_text && (
+                <div className="bg-white rounded-lg p-4 border border-[#E0E0E0]">
+                  <h3 className="text-sm font-bold text-[#333] mb-3 flex items-center gap-2">
+                    <span>💬</span> AI 피드백
+                  </h3>
+                  <pre className="text-xs text-[#333] leading-relaxed whitespace-pre-wrap font-sans bg-[#F8F9FA] rounded-md p-3">
+                    {db.feedback_text}
+                  </pre>
+                </div>
+              )}
+
+              {/* AI 요약 */}
+              {db?.ai_summary && (
+                <div className="bg-white rounded-lg p-4 border border-[#E0E0E0]">
+                  <h3 className="text-sm font-bold text-[#333] mb-3 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-[#0047AB]" />
+                    AI 상담 요약
+                  </h3>
+                  <pre className="text-xs text-[#333] leading-relaxed whitespace-pre-wrap font-sans">
+                    {db.ai_summary}
+                  </pre>
+                </div>
+              )}
+
+              {/* 상담원 메모 */}
+              {db?.agent_notes && (
+                <div className="bg-white rounded-lg p-4 border border-[#E0E0E0]">
+                  <h3 className="text-sm font-bold text-[#333] mb-3 flex items-center gap-2">
+                    <span>📝</span> 상담원 메모
+                  </h3>
+                  <p className="text-xs text-[#333] leading-relaxed">{db.agent_notes}</p>
+                </div>
+              )}
+
+              {/* 피드백 데이터 없는 경우 */}
+              {!db?.feedback_text && !db?.feedback_emotions?.length && !db?.ai_summary && (
+                <div className="text-center py-8 text-[#999]">
+                  <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">저장된 피드백이 없습니다</p>
+                  <p className="text-xs mt-1">상담 완료 후 피드백이 자동 저장됩니다</p>
+                </div>
+              )}
+            </div>
+          )}
+          {/* 기존 상담 상세 뷰 */}
+          {!showFeedback && <>
           {/* 로딩 표시 (Real 모드에서만) */}
           {!USE_MOCK_DATA && isLoadingDetail && (
             <div className="flex items-center justify-center py-8">
@@ -363,9 +519,9 @@ export default function ConsultationDetailModal({ isOpen, onClose, consultation 
               <CheckCircle className="w-3.5 h-3.5 text-[#0047AB]" />
               상담 요약
             </h3>
-            <p className="text-[11px] text-[#333333] leading-relaxed">
+            <pre className="text-[11px] text-[#333333] leading-relaxed whitespace-pre-wrap font-sans">
               {detailData.summary}
-            </p>
+            </pre>
           </div>
 
           {/* Action Timeline */}
@@ -395,16 +551,35 @@ export default function ConsultationDetailModal({ isOpen, onClose, consultation 
                   key={index}
                   onClick={() => {
                     setSelectedDocumentId(doc.id);
+                    setSelectedDocumentData({
+                      title: doc.title,
+                      content: doc.content,
+                      fullText: (doc as any).fullText,
+                      sourceTable: (doc as any).sourceTable,
+                    });
                     setIsDocumentModalOpen(true);
                   }}
                   className="w-full flex items-center gap-2 p-1.5 rounded bg-[#F8F9FA] hover:bg-[#E8F1FC] transition-colors cursor-pointer text-left"
                 >
                   <FileText className="w-3.5 h-3.5 text-[#0047AB] flex-shrink-0" />
-                  <span className="text-xs text-[#333333]">{doc.title}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs text-[#333333] block truncate">{doc.title}</span>
+                  </div>
+                  <span className="text-[10px] text-[#999999] flex-shrink-0">{doc.content}</span>
+                  {(doc as any).relevanceScore != null && (
+                    <span className={`text-[10px] font-mono flex-shrink-0 px-1 py-0.5 rounded ${
+                      (doc as any).relevanceScore >= 80 ? 'bg-green-100 text-green-700' :
+                      (doc as any).relevanceScore >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      {(doc as any).relevanceScore}%
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
           </div>
+          </>}
         </div>
 
         {/* Footer */}
@@ -439,8 +614,15 @@ export default function ConsultationDetailModal({ isOpen, onClose, consultation 
           onClose={() => {
             setIsDocumentModalOpen(false);
             setSelectedDocumentId(null);
+            setSelectedDocumentData(null);
           }}
           documentId={selectedDocumentId}
+          documentData={selectedDocumentData ? {
+            title: selectedDocumentData.title,
+            content: selectedDocumentData.content,
+            fullText: selectedDocumentData.fullText,
+            sourceTable: selectedDocumentData.sourceTable,
+          } : undefined}
         />
       )}
 

@@ -14,6 +14,8 @@ interface SearchResultLayerProps {
   className?: string;
   onIndexChange?: (currentIndex: number, totalBlocks: number) => void; // 인디케이터 상태 전달
   externalIndex?: number; // 외부(SearchLayer)에서 인디케이터 클릭 시 전달받는 인덱스
+  activeLayer?: 'kanban' | 'search'; // 키보드 포커싱용
+  focusedCard?: { row: number; col: number }; // 키보드 포커싱 위치
 }
 
 /**
@@ -28,7 +30,9 @@ export const SearchResultLayer = ({
   onCardClick,
   className = '',
   onIndexChange,
-  externalIndex
+  externalIndex,
+  activeLayer,
+  focusedCard
 }: SearchResultLayerProps) => {
   const [currentIndex, setCurrentIndex] = useState(0); // 현재 보고 있는 블록 인덱스 (0 = 최신 검색)
   const [isFirstSearch, setIsFirstSearch] = useState(true);
@@ -122,7 +126,7 @@ export const SearchResultLayer = ({
     <div className={className}>
       {/* 2x2 그리드 컨테이너 (드래그 가능) */}
       <div
-        className="relative overflow-hidden select-none"
+        className="relative overflow-visible select-none"
         style={{
           cursor: totalBlocks > 1 ? 'grab' : 'default'
         }}
@@ -169,6 +173,7 @@ export const SearchResultLayer = ({
                       source="search-result"
                       searchNumber={searchNumber}
                       onDetailClick={() => onCardClick(card)}
+                      isFocused={activeLayer === 'search' && focusedCard?.row === row && focusedCard?.col === col}
                     />
                   ) : (
                     <EmptySearchSlot />

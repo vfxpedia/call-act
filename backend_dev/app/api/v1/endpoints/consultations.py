@@ -174,6 +174,7 @@ async def get_consultations(
     agent_id: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
+    is_best_practice: Optional[bool] = None,
 ):
     """
     상담 목록 조회
@@ -243,6 +244,10 @@ async def get_consultations(
             if date_to:
                 query += " AND c.call_date <= %s"
                 params.append(date_to)
+
+            if is_best_practice is not None:
+                query += " AND c.is_best_practice = %s"
+                params.append(is_best_practice)
 
             # 전체 개수
             count_query = f"SELECT COUNT(*) FROM ({query}) as subq"

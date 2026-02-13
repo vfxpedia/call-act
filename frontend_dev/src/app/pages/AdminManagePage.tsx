@@ -7,7 +7,7 @@ import EditEmployeeModal from '../components/modals/EditEmployeeModal';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Pagination } from '../components/ui/Pagination';
+import { Pagination } from '../components/ui/pagination_component';
 import { toast } from 'sonner';
 import { fetchEmployees, createEmployee, updateEmployee, deleteEmployee as deleteEmployeeApi } from '@/api/employeesApi';
 import { USE_MOCK_DATA } from '@/config/mockConfig';
@@ -212,7 +212,7 @@ export default function AdminManagePage() {
 
   return (
     <MainLayout>
-      <div className="h-[calc(100vh-60px)] flex flex-col p-3 gap-3 bg-[#F5F5F5] overflow-hidden">
+      <div className="h-[var(--content-height)] flex flex-col p-3 gap-3 bg-[#F5F5F5] overflow-hidden">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border border-[#E0E0E0] p-3 flex-shrink-0">
           <div className="flex items-center justify-between">

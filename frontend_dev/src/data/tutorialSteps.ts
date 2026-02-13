@@ -108,6 +108,51 @@ export const tutorialStepsPhase2: TutorialStep[] = [
   },
 ];
 
+// ⭐ 교육 시뮬레이션 페이지 가이드 (SimulationPage용)
+export const tutorialStepsSimulation: TutorialStep[] = [
+  {
+    id: "sim-welcome",
+    title: "교육 시뮬레이션에 오신 것을 환영합니다!",
+    description: `이곳에서 실전과 같은 상담 연습을 할 수 있습니다.
+두 가지 학습 방법을 제공합니다:
+
+• 우수 상담 사례를 기반으로 한 심화 학습
+• 기본 시나리오를 활용한 체계적 훈련
+
+각 섹션을 살펴보겠습니다.`,
+  },
+  {
+    id: "sim-best-practices",
+    targetId: "sim-best-practices-section",
+    title: "우수 상담 사례",
+    description: `실제 높은 평가를 받은 상담 기록을 기반으로 학습합니다.
+• 우수 상담사의 응대 방법을 직접 체험
+• "학습하기" 버튼으로 해당 상담을 시뮬레이션
+• 실전 감각을 빠르게 습득할 수 있습니다`,
+    position: "right",
+  },
+  {
+    id: "sim-basic-scenarios",
+    targetId: "sim-basic-scenarios-section",
+    title: "기본 시나리오",
+    description: `카테고리별 기본 상담 시나리오로 체계적으로 학습합니다.
+• 카드분실, 해외결제, 한도증액 등 주요 유형별 훈련
+• 난이도별(초급/중급/고급) 단계적 학습
+• "시작하기" 버튼으로 시뮬레이션 시작`,
+    position: "right",
+  },
+  {
+    id: "sim-start",
+    targetId: "sim-recent-section",
+    title: "학습을 시작해보세요!",
+    description: `우측에서 최근 학습 기록을 확인할 수 있습니다.
+
+원하는 시나리오를 선택하고 "시작하기" 또는 "학습하기"를 클릭하면
+가이드 모드로 시뮬레이션이 시작됩니다!`,
+    position: "left",
+  },
+];
+
 // ⭐ Phase 3: 후처리 (AfterCallWorkPage용)
 export const tutorialStepsPhase3: TutorialStep[] = [
   {

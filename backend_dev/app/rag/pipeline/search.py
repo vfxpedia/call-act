@@ -30,10 +30,17 @@ from app.rag.router.router import route_query
 from app.rag.policy.search_gating import decide_search_gating
 from app.rag.policy.answer_class import classify as classify_answer_class
 
+import logging
+
+_logger = logging.getLogger(__name__)
 
 LOG_RETRIEVER_DEBUG = os.getenv("RAG_LOG_RETRIEVER_DEBUG") == "1"
 RETRIEVE_BUDGET_MS = int(os.getenv("RAG_RETRIEVE_BUDGET_MS", "950"))
 RETRIEVE_MAX_STAGES = int(os.getenv("RAG_RETRIEVE_MAX_STAGES", "2"))
+KEYWORD_INDEX_ENABLED = os.getenv("RAG_KEYWORD_INDEX", "1") != "0"
+FLOW_PREDICTION_ENABLED = os.getenv("RAG_FLOW_PREDICTION", "1") != "0"
+# M-3: 최소 relevance 임계값 — 이 미만 score 문서는 제거 (최소 1개 유지)
+MIN_RELEVANCE_THRESHOLD = float(os.getenv("RAG_MIN_RELEVANCE", "0.08"))
 
 
 @dataclass(frozen=True)
@@ -47,6 +54,7 @@ class SearchResult:
     t_start: float
     t_route: float
     t_retrieve: float
+    flow_docs: List[Dict[str, Any]] = None  # M-2 단계3: 흐름 예측 문서
 
 
 def route(query: str) -> Dict[str, Any]:
@@ -65,6 +73,106 @@ def _retrieval_failed(docs: List[Dict[str, Any]], routing: Dict[str, Any]) -> bo
         if top.get("card_match") is False:
             return True
     return False
+
+
+def _try_keyword_index(query: str, routing: Dict[str, Any], top_k: int) -> List[Dict[str, Any]]:
+    """역색인에서 키워드 기반 문서 조회 (< 1ms).
+
+    routing.matched에서 추출된 card_names, actions, weak_intents를 사용하여
+    미리 빌드된 역색인에서 문서를 즉시 조회합니다.
+
+    Returns:
+        역색인 매칭 문서 리스트 (빈 리스트 = 매칭 없음)
+    """
+    if not KEYWORD_INDEX_ENABLED:
+        return []
+    try:
+        from app.rag.cache.keyword_doc_index import lookup, lookup_combo, is_built
+        if not is_built():
+            return []
+    except ImportError:
+        return []
+
+    matched = routing.get("matched") or {}
+    card_names = matched.get("card_names") or []
+    actions = matched.get("actions") or []
+    weak_intents = matched.get("weak_intents") or []
+
+    # 키워드 수집 (중복 제거)
+    keywords = []
+    seen = set()
+    for kw_list in (card_names, actions, weak_intents):
+        for kw in kw_list:
+            if kw and kw not in seen:
+                keywords.append(kw)
+                seen.add(kw)
+
+    if not keywords:
+        return []
+
+    # 역색인 조회
+    if len(keywords) >= 2:
+        entries = lookup_combo(keywords, top_k=top_k * 2)
+    else:
+        entries = lookup(keywords[0], top_k=top_k * 2)
+
+    if not entries:
+        return []
+
+    # IndexEntry → 전체 문서 fetch (DB에서 content, structured 포함)
+    from app.rag.retriever.db import fetch_docs_by_ids
+    from collections import defaultdict
+
+    # 테이블별로 그룹핑
+    by_table: Dict[str, List] = defaultdict(list)
+    entry_map: Dict[str, Any] = {}  # doc_id → IndexEntry
+    for entry in entries:
+        table = entry.table
+        if table in ("card_products", "service_guide_documents"):
+            by_table[table].append(entry.doc_id)
+            entry_map[entry.doc_id] = entry
+
+    docs: List[Dict[str, Any]] = []
+    for table, ids in by_table.items():
+        fetched = fetch_docs_by_ids(table, ids)
+        for doc in fetched:
+            doc_id = doc.get("id")
+            idx_entry = entry_map.get(doc_id)
+            if idx_entry:
+                # M-3: relevance는 키워드 소스 가중치(0.5~1.0)이지 쿼리 관련도가 아님
+                # 벡터 검색 score(0.2~0.6)와 동일 스케일로 정규화
+                doc["score"] = idx_entry.relevance * 0.45
+                doc["_from_keyword_index"] = True
+                doc["_index_keywords"] = keywords
+            docs.append(doc)
+
+    # relevance 내림차순 정렬
+    docs.sort(key=lambda d: d.get("score", 0.0), reverse=True)
+    _logger.debug(
+        "keyword_index: query=%r keywords=%s → %d docs",
+        query[:50], keywords, len(docs),
+    )
+    return docs[:top_k]
+
+
+def _merge_index_and_vector_docs(
+    index_docs: List[Dict[str, Any]],
+    vector_docs: List[Dict[str, Any]],
+    top_k: int,
+) -> List[Dict[str, Any]]:
+    """역색인 문서와 벡터 검색 문서를 score 기반 병합 (중복 제거)."""
+    seen: set = set()
+    merged: List[Dict[str, Any]] = []
+
+    # M-3: 모든 문서를 합친 후 score 내림차순 정렬 (출처 무관)
+    for doc in index_docs + vector_docs:
+        doc_id = doc.get("id")
+        if doc_id and doc_id not in seen:
+            seen.add(doc_id)
+            merged.append(doc)
+
+    merged.sort(key=lambda d: d.get("score", 0.0), reverse=True)
+    return merged[:top_k]
 
 
 def _flip_route_for_fallback(routing: Dict[str, Any]) -> Dict[str, Any]:
@@ -205,6 +313,28 @@ async def run_search(
                 await retrieval_cache_set(cache_key, entries)
                 if retrieve_cache_status == "off":
                     retrieve_cache_status = "miss"
+    # ── 역색인 병합: 벡터 검색 결과에 역색인 문서 추가 (Stage 2) ──
+    if KEYWORD_INDEX_ENABLED:
+        try:
+            index_docs = _try_keyword_index(query, routing, top_k=top_k)
+            if index_docs:
+                docs = _merge_index_and_vector_docs(index_docs, docs, top_k=top_k * 2)
+                routing["_keyword_index_hits"] = len(index_docs)
+        except Exception:
+            pass  # 역색인 실패 시 기존 벡터 결과 유지
+
+    # M-3: 키워드 인덱스 문서의 제목-쿼리 관련성 보정
+    # 쿼리 핵심어가 제목에 없는 키워드 인덱스 문서는 score 감쇠
+    _TITLE_CHECK_STOPWORDS = {"카드", "안내", "체크", "신용", "체크카드", "신용카드", "확인", "조회", "방법"}
+    _q_tokens = [t for t in query.split() if len(t) >= 2 and t not in _TITLE_CHECK_STOPWORDS]
+    for doc in docs:
+        if not doc.get("_from_keyword_index"):
+            continue
+        title_lower = str(doc.get("title") or "").lower()
+        # 쿼리 핵심 토큰 중 하나라도 제목에 포함되면 OK (범용어 제외)
+        if _q_tokens and not any(t.lower() in title_lower for t in _q_tokens):
+            doc["score"] = doc.get("score", 0.0) * 0.15  # 제목 무관 → MIN_RELEVANCE 이하로 감쇠
+
     # normalize docs ordering and remove noisy k-pass for loss/loan queries (cache-safe)
     def _is_kpass_doc(doc: Dict[str, Any]) -> bool:
         title = str(doc.get("title") or "").lower()
@@ -221,6 +351,10 @@ async def run_search(
         if not isinstance(doc.get("score"), (int, float)):
             doc["score"] = 0.0
     docs.sort(key=lambda d: d.get("score", 0.0), reverse=True)
+    # M-3: 최소 relevance 임계값 이하 문서 제거 (최소 1개 유지)
+    if docs and MIN_RELEVANCE_THRESHOLD > 0:
+        above = [d for d in docs if d.get("score", 0.0) >= MIN_RELEVANCE_THRESHOLD]
+        docs = above if above else docs[:1]
     if consult_task:
         consult_docs = await consult_task
         if (routing.get("route") or routing.get("ui_route")) != "card_usage":
@@ -229,6 +363,21 @@ async def run_search(
             if session_state is not None:
                 session_state["consult_last_search_at"] = time.time()
                 session_state["consult_last_query"] = query
+
+    # ── M-2 단계3: 상담 흐름 예측 ──
+    flow_docs: List[Dict[str, Any]] = []
+    if FLOW_PREDICTION_ENABLED and session_state is not None:
+        try:
+            from app.rag.flow.flow_tracker import update_flow, predict_next_docs
+            update_flow(session_state, routing)
+            flow_docs = predict_next_docs(session_state, top_k=2)
+            if flow_docs:
+                # 현재 결과와 중복 제거
+                current_ids = {d.get("id") for d in docs}
+                flow_docs = [d for d in flow_docs if d.get("id") not in current_ids]
+                routing["_flow_prediction_count"] = len(flow_docs)
+        except Exception:
+            pass  # 흐름 예측 실패 시 기존 동작 유지
 
     t_retrieve = time.perf_counter()
     return SearchResult(
@@ -241,4 +390,5 @@ async def run_search(
         t_start=t_start,
         t_route=t_route,
         t_retrieve=t_retrieve,
+        flow_docs=flow_docs,
     )

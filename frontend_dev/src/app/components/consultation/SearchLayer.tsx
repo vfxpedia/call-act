@@ -11,6 +11,8 @@ interface SearchLayerProps {
   onCardClick: (card: ScenarioCard) => void;
   focusedCardIds: string[];
   className?: string;
+  activeLayer?: 'kanban' | 'search';
+  focusedCard?: { row: number; col: number };
 }
 
 /**
@@ -24,7 +26,9 @@ export const SearchLayer = ({
   searchResults,
   onCardClick,
   focusedCardIds,
-  className = ''
+  className = '',
+  activeLayer,
+  focusedCard
 }: SearchLayerProps) => {
   const totalResults = searchResults.flat().length;
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
@@ -155,6 +159,8 @@ export const SearchLayer = ({
             className="flex-1"
             onIndexChange={handleIndexChange}
             externalIndex={currentSearchIndex}
+            activeLayer={activeLayer}
+            focusedCard={focusedCard}
           />
         )}
       </div>

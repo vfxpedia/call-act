@@ -143,6 +143,8 @@ def _expand_guide_terms(terms: List[str]) -> List[str]:
     for term in expanded:
 
         if term in {"분실", "도난", "분실도난", "도난분실", "잃어버", "분실/도난", "분실·도난", "분실-도난", "분실 도난", "도난 분실"}:
+            if term not in normalized:
+                normalized.append(term)
             if "분실도난" not in normalized:
                 normalized.append("분실도난")
         else:

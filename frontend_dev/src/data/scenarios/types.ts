@@ -2,7 +2,7 @@
 // 실제 RAG, STT, 고객DB를 시뮬레이션하는 타입 시스템
 
 // ⭐ Phase 2: 문서 타입 체계화
-export type DocumentType = 'terms' | 'product-spec' | 'analysis-report' | 'guide' | 'general';
+export type DocumentType = 'terms' | 'product-spec' | 'analysis-report' | 'guide' | 'faq' | 'general';
 
 export interface ScenarioKeyword {
   text: string;
@@ -41,6 +41,8 @@ export interface ScenarioCard {
   displayTime?: string; // 화면 표시용 (HH:MM (N분 전))
   // ⭐ 검색 결과 매칭 점수
   relevanceScore?: number; // 검색 매칭 점수 (0-100)
+  // ⭐ RAG 검색 소요시간
+  searchTimeMs?: number; // 문서 검색 소요시간 (ms)
 }
 
 export interface ScenarioStep {

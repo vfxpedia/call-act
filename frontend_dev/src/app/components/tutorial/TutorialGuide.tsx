@@ -107,9 +107,21 @@ export function TutorialGuide({
       const targetElement = document.getElementById(currentStepData.targetId!);
       if (!targetElement) return;
 
-      const rect = targetElement.getBoundingClientRect();
+      const rawRect = targetElement.getBoundingClientRect();
       const position = currentStepData.position || 'bottom';
-      
+
+      // ⭐ CSS zoom 보정 (theme.css: html { zoom: 0.9 })
+      // getBoundingClientRect()은 visual 좌표, position:fixed는 CSS 좌표 사용
+      const cssZoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+      const rect = cssZoom !== 1 ? {
+        top: rawRect.top / cssZoom,
+        bottom: rawRect.bottom / cssZoom,
+        left: rawRect.left / cssZoom,
+        right: rawRect.right / cssZoom,
+        width: rawRect.width / cssZoom,
+        height: rawRect.height / cssZoom,
+      } as DOMRect : rawRect;
+
       const tooltipWidth = 380; // 말풍선 너비
       const tooltipHeight = 260; // 말풍선 높이 (대략)
       const gap = 20; // 타겟과 말풍선 사이 간격
@@ -137,9 +149,9 @@ export function TutorialGuide({
           // 타겟 아래쪽, 가로 중앙 정렬
           top = rect.bottom + gap;
           left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
-          // 화면 하단 경계 체크
-          if (top + tooltipHeight > window.innerHeight - padding) {
-            top = Math.max(padding, window.innerHeight - tooltipHeight - padding);
+          // 화면 하단 경계 체크 (CSS 좌표계 사용)
+          if (top + tooltipHeight > document.documentElement.clientHeight - padding) {
+            top = Math.max(padding, document.documentElement.clientHeight - tooltipHeight - padding);
           }
           break;
         case 'left':
@@ -155,8 +167,8 @@ export function TutorialGuide({
           // 타겟 오른쪽, 세로 중앙 정렬
           top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
           left = rect.right + gap;
-          // 화면 우측 경계 체크
-          if (left + tooltipWidth > window.innerWidth - padding) {
+          // 화면 우측 경계 체크 (CSS 좌표계 사용)
+          if (left + tooltipWidth > document.documentElement.clientWidth - padding) {
             left = rect.left - tooltipWidth - gap; // 좌측으로 변경
           }
           break;
@@ -184,7 +196,18 @@ export function TutorialGuide({
       targetElement.style.transition = 'box-shadow 0.3s ease';
       targetElement.style.boxShadow = `0 0 0 4px ${themeColor}40, 0 0 20px ${themeColor}60`;
       targetElement.style.borderRadius = '8px';
-      
+
+      // ⭐ 부모 overflow:hidden/auto 클리핑 방지 (최대 4단계 상위까지)
+      let parent = targetElement.parentElement;
+      for (let i = 0; i < 4 && parent; i++) {
+        const cs = getComputedStyle(parent);
+        if (cs.overflow !== 'visible' || cs.overflowX !== 'visible' || cs.overflowY !== 'visible') {
+          parent.dataset.tutorialOverflow = cs.overflow;
+          parent.style.overflow = 'visible';
+        }
+        parent = parent.parentElement;
+      }
+
       // ⭐ 즉시 표시 (delay 제거)
       setIsPositionCalculated(true);
     };
@@ -206,6 +229,15 @@ export function TutorialGuide({
         if (currentStepData.targetId === 'info-cards-area') {
           targetElement.style.padding = '';
           targetElement.style.margin = '';
+        }
+        // ⭐ 부모 overflow 복원
+        let parent = targetElement.parentElement;
+        for (let i = 0; i < 4 && parent; i++) {
+          if (parent.dataset.tutorialOverflow) {
+            parent.style.overflow = parent.dataset.tutorialOverflow;
+            delete parent.dataset.tutorialOverflow;
+          }
+          parent = parent.parentElement;
         }
       }
     };

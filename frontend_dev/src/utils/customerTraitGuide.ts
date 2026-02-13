@@ -52,16 +52,42 @@ const PERSONALITY_TAG_MAP: { [key: string]: string } = {
   'business': '비즈니스 고객',
   'regular': '일반 고객',
 
+  // 성격/성향 (추가)
+  'practical': '실용적',
+  'efficient': '효율적',
+  'cautious': '신중함',
+  'security_conscious': '보안 의식',
+  'suspicious': '의심형',
+  'detailed': '꼼꼼함',
+  'thorough': '철저함',
+  'confused': '혼란형',
+  'demanding': '요구사항 많음',
+  'normal': '일반',
+
+  // 상담 스타일 (추가)
+  'needs_repetition': '반복 설명 필요',
+  'patient_required': '인내심 필요',
+  'repeat_caller': '반복 문의',
+  'frequent_caller': '잦은 문의',
+
+  // 고객 유형 (추가)
+  'elderly': '시니어',
+  'high_value': '고가치 고객',
+
   // 주의 필요
   'complaint_prone': '민원 이력',
   'delinquent': '연체 이력',
   'cost_sensitive': '비용 민감',
-  'high_maintenance': '요구사항 많음',
+  'high_maintenance': '고요구',
   'sensitive': '민감함',
   'urgent': '긴급',
   'time_sensitive': '시간 민감',
   'rushed': '급함',
   'busy': '바쁨',
+  'frustrated': '좌절감',
+  'angry': '화남',
+  'unresolved': '미해결',
+  'complaining': '불만형',
 };
 
 /**
@@ -98,8 +124,6 @@ export function getTraitColor(trait: string): { bg: string; text: string } {
 
     // 긍정적 특성 - 진한 블루
     'VIP 고객': { bg: '#FDF4E7', text: '#B8860B' },
-    'PREMIUM': { bg: '#F3E8FF', text: '#7C3AED' },
-    'GOLD': { bg: '#FDF4E7', text: '#B8860B' },
     '신용 관리 철저': { bg: '#E8F1FC', text: '#0047AB' },
     '계획적인 성향': { bg: '#E8F1FC', text: '#0047AB' },
     '기술 친화적': { bg: '#E8F1FC', text: '#0047AB' },
@@ -144,6 +168,19 @@ export function getTraitColor(trait: string): { bg: string; text: string } {
     '비용 민감': { bg: '#F5F5F5', text: '#666666' },
     '꼼꼼한 성향': { bg: '#F5F5F5', text: '#666666' },
     '반복 질문 많음': { bg: '#F5F5F5', text: '#666666' },
+    // Level02 추가 번역 태그
+    '실용적': { bg: '#F5F5F5', text: '#666666' },
+    '효율적': { bg: '#F5F5F5', text: '#666666' },
+    '신중함': { bg: '#F5F5F5', text: '#666666' },
+    '보안 의식': { bg: '#E8F1FC', text: '#0047AB' },
+    '철저함': { bg: '#F5F5F5', text: '#666666' },
+    '일반': { bg: '#F5F5F5', text: '#666666' },
+    '반복 설명 필요': { bg: '#F5F5F5', text: '#666666' },
+    '인내심 필요': { bg: '#F5F5F5', text: '#666666' },
+    '고가치 고객': { bg: '#FDF4E7', text: '#B8860B' },
+    '고요구': { bg: '#F5F5F5', text: '#666666' },
+    '잦은 문의': { bg: '#D4E3F3', text: '#003580' },
+    '반복 문의': { bg: '#D4E3F3', text: '#003580' },
     '영어 가능': { bg: '#F5F5F5', text: '#666666' },
     '온라인 처리 선호': { bg: '#F5F5F5', text: '#666666' },
     '급여일 기반 관리': { bg: '#F5F5F5', text: '#666666' },
@@ -161,10 +198,14 @@ export function getTraitColor(trait: string): { bg: string; text: string } {
     '반복 민원': { bg: '#D4E3F3', text: '#003580' },
     '좌절감': { bg: '#D4E3F3', text: '#003580' },
     '불만 항의': { bg: '#D4E3F3', text: '#003580' },
+    '불만형': { bg: '#D4E3F3', text: '#003580' },
+    '의심형': { bg: '#D4E3F3', text: '#003580' },
+    '혼란형': { bg: '#D4E3F3', text: '#003580' },
+    '화남': { bg: '#FEE2E2', text: '#DC2626' },
+    '미해결': { bg: '#FEF3C7', text: '#D97706' },
     '긴급': { bg: '#FEE2E2', text: '#DC2626' },         // 빨간색 계열
     '시간 민감': { bg: '#FEF3C7', text: '#D97706' },    // 주황색 계열
     '급함': { bg: '#FEE2E2', text: '#DC2626' },
-    '바쁨': { bg: '#FEF3C7', text: '#D97706' },
     '민감함': { bg: '#D4E3F3', text: '#003580' },
     '불안함': { bg: '#D4E3F3', text: '#003580' },
     '망설임': { bg: '#F5F5F5', text: '#666666' },

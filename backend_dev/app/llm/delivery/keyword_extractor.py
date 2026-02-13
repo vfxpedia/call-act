@@ -143,6 +143,52 @@ CONDITIONAL_STOPWORDS = {
     "카드", "문의", "번호", "질문", "상담",
 }
 
+# FIXED: 카드명으로 오인식되어서는 안 되는 단어들 (블랙리스트)
+CARD_NAME_BLACKLIST = {
+    # 기기명만 (명백하게 카드명이 아닌 것)
+    "아이폰", "아이패드", "맥북", "갤럭시", "스마트폰", "핸드폰", "휴대폰",
+}
+
+# 명백한 비카드명 키워드 (최소한만 유지)
+CARD_NAME_EXCLUDE_KEYWORDS = {
+    "쿠폰", "바우처", "포인트", "적립금", "마일리지",
+}
+
+# ── 비정보성 발화 필터 (M-2 Phase 1) ──
+# 인사, 감사, 확인, 맞장구 등 키워드 추출이 불필요한 발화 패턴
+NON_INFO_PATTERNS = [
+    re.compile(r'^안녕하세요[.\s]*(테디카드|상담[원사])?'),
+    re.compile(r'^(네[,.]?\s*)?(감사합니다|고맙습니다|수고하[십세]|좋은\s*하루)'),
+    re.compile(r'^(네[,.]?\s*)(알겠습니다|확인[했되]|처리해)'),
+    re.compile(r'^(네[,.]?\s*)$'),
+    re.compile(r'^(어|아)[,.]?\s*네[.]?$'),
+    re.compile(r'(더|추가)\s*(문의|궁금)\s*사항\s*(없으|있으)'),
+    re.compile(r'^(없습니다|없어요|없어|아니요|아뇨)[.]?$'),
+    re.compile(r'^무엇을\s*도와드릴까요'),
+    re.compile(r'이용해\s*주셔서\s*감사'),
+    re.compile(r'상담[원사]\s*\S{2,3}이?었습니다'),
+]
+
+def _is_plausible_card_name(name: str) -> bool:
+    """
+    카드명으로 적절한지 검증 (최소 룰만 적용)
+    STT 입력을 고려하여 과도한 필터링 방지
+    """
+    if not name or len(name) < 2:
+        return False
+
+    # 명백한 블랙리스트만 체크
+    if name in CARD_NAME_BLACKLIST:
+        return False
+
+    # 명백한 비카드명 키워드 포함 체크
+    name_lower = name.lower()
+    for exclude_keyword in CARD_NAME_EXCLUDE_KEYWORDS:
+        if exclude_keyword in name_lower:
+            return False
+
+    return True
+
 
 @dataclass
 class ExtractedKeywords:
@@ -280,6 +326,12 @@ class KeywordExtractor:
         if not text or not text.strip():
             return ExtractedKeywords(original_text=text, corrected_text=text)
 
+        # 0. 비정보성 발화 필터 (인사/감사/확인 등 스킵)
+        stripped = text.strip()
+        for pattern in NON_INFO_PATTERNS:
+            if pattern.search(stripped):
+                return ExtractedKeywords(original_text=text, corrected_text=text)
+
         # 1. STT 오류 교정
         corrected = self._correct_stt_errors(text)
 
@@ -324,38 +376,41 @@ class KeywordExtractor:
         return corrected
 
     def _extract_card_names(self, text: str) -> List[str]:
-        """카드상품명 추출"""
+        """
+        카드상품명 추출 - DB 기반 vocabulary matcher 우선
+        STT 입력을 고려한 두 단계 접근
+        """
         card_names = []
 
-        # 1. 형태소 분석으로 카드상품명 후보 추출
-        if MORPHOLOGY_AVAILABLE:
-            try:
-                candidates = extract_card_product_candidates(text)
-                for candidate in candidates:
-                    if candidate and candidate not in card_names:
-                        card_names.append(candidate)
-            except Exception as e:
-                print(f"[KeywordExtractor] 형태소 분석 실패: {e}")
+        if not VOCABULARY_MATCHER_AVAILABLE:
+            return card_names
 
-        # 2. 어휘 매칭으로 카드상품명 검증/추가
-        if VOCABULARY_MATCHER_AVAILABLE:
-            try:
-                # 전체 텍스트에서 매칭 시도
-                matches = find_candidates(text, top_k=3, threshold=0.75)
-                for match, score in matches:
-                    if match and match not in card_names and score >= 0.75:
-                        card_names.append(match)
+        try:
+            # 1단계: 전체 텍스트에서 직접 매칭 (STT 띄어쓰기 오류 허용)
+            # threshold 약간 낮춤: 0.70 (STT 오류 고려)
+            matches = find_candidates(text, top_k=5, threshold=0.70)
+            print(f"[DEBUG CardName] Query: '{text}' → VocabMatcher: {[(m, f'{s:.3f}') for m, s in matches]}")
+            for match, score in matches:
+                # 명백한 비카드명만 제외 (최소 룰)
+                plausible = _is_plausible_card_name(match) if match else False
+                if match and match not in card_names and plausible and score >= 0.70:
+                    card_names.append(match)
+                    print(f"[DEBUG CardName]   ✓ Accept: {match}")
+                elif match:
+                    print(f"[DEBUG CardName]   ✗ Reject: {match} (plausible={plausible}, score={score:.3f})")
 
-                # 형태소 분석 결과 각각에 대해서도 매칭 시도
-                if MORPHOLOGY_AVAILABLE:
-                    nouns = extract_nouns(text)
-                    for noun in nouns:
-                        if len(noun) >= 2:
-                            best = get_best_match(noun, confidence_threshold=0.80)
-                            if best and best not in card_names:
-                                card_names.append(best)
-            except Exception as e:
-                print(f"[KeywordExtractor] 어휘 매칭 실패: {e}")
+            # 2단계: 형태소 분석 → vocabulary matcher 재검증 (보조)
+            # 복합어가 붙어있는 경우 형태소 분리 후 재검증
+            if MORPHOLOGY_AVAILABLE:
+                nouns = extract_nouns(text)
+                for noun in nouns:
+                    if len(noun) >= 2:
+                        # 형태소 분석 결과는 부정확할 수 있으므로 높은 threshold 적용: 0.85
+                        best = get_best_match(noun, confidence_threshold=0.85)
+                        if best and best not in card_names and _is_plausible_card_name(best):
+                            card_names.append(best)
+        except Exception as e:
+            print(f"[KeywordExtractor] 카드명 추출 실패: {e}")
 
         return card_names
 

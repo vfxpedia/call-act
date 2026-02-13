@@ -18,7 +18,8 @@
 
 | # | DB (D) | Backend (B) | Frontend (F) | 협업 논의 | 상태 |
 |---|--------|-------------|-------------|----------|------|
-| 01 | [문서 정체성 + 키워드](01_D_document_identity_and_keywords.md) | [RAG 타입 연동](01_B_rag_pipeline_document_type.md) | [타입 표시 통일](01_F_document_type_display.md) | [3팀 논의](01_DISCUSSION.md) | **Phase A 완료** → Phase B 합의 대기 |
+| 01 | [문서 정체성 + 키워드](01_D_document_identity_and_keywords.md) | [RAG 타입 연동](01_B_rag_pipeline_document_type.md) | [타입 표시 통일](01_F_document_type_display.md) | [3팀 논의](01_DISCUSSION.md) | **Phase A-C 완료** |
+| 02 | fullText 전처리, Mock 피드백 | [메모] 프롬프트, 참조문서 조사 | UI/UX 6건 완료, 포커싱, 정렬 | [Level02 논의](02_LEVEL02_DISCUSSION.md) | **Phase 1 완료, Phase 2 대기** |
 
 ---
 

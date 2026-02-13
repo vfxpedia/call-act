@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FileText, ExternalLink } from 'lucide-react';
 import DocumentDetailModal from './DocumentDetailModal';
+import { fetchFrequentInquiryById } from '@/api/frequentInquiriesApi';
 
 interface FrequentInquiryModalProps {
   isOpen: boolean;
@@ -11,26 +12,33 @@ interface FrequentInquiryModalProps {
     question: string;
     count: number;
     trend: 'up' | 'down' | 'same';
-  };
-  detailData: Array<{
-    id: number;
-    keyword: string;
-    question: string;
-    count: number;
-    trend: 'up' | 'down' | 'same';
-    content: string;
-    relatedDocument: {
+    content?: string;
+    relatedDocument?: {
+      documentId: string;
       title: string;
-      regulation: string;
-      summary: string;
-      document_id: string;
+      regulation?: string;
+      summary?: string;
+      sourceTable?: string;
+      documentType?: string;
     };
-  }>;
+  };
 }
 
-export default function FrequentInquiryModal({ isOpen, onClose, inquiry, detailData }: FrequentInquiryModalProps) {
-  // ⭐ 상세 데이터 찾기
-  const detail = detailData.find(d => d.id === inquiry.id);
+export default function FrequentInquiryModal({ isOpen, onClose, inquiry }: FrequentInquiryModalProps) {
+  // ⭐ 상세 데이터 (API에서 로드)
+  const [detail, setDetail] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && inquiry?.id) {
+      setIsLoading(true);
+      setDetail(null);
+      fetchFrequentInquiryById(inquiry.id)
+        .then(data => setDetail(data))
+        .catch(err => console.error('FAQ 상세 로드 실패:', err))
+        .finally(() => setIsLoading(false));
+    }
+  }, [isOpen, inquiry?.id]);
   
   // ⭐ 문서 상세 모달 상태
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
@@ -38,8 +46,8 @@ export default function FrequentInquiryModal({ isOpen, onClose, inquiry, detailD
 
   // ⭐ "보기" 버튼 클릭 핸들러
   const handleViewDocument = () => {
-    if (detail?.relatedDocument.document_id) {
-      setSelectedDocumentId(detail.relatedDocument.document_id);
+    if (detail?.relatedDocument?.documentId) {
+      setSelectedDocumentId(detail.relatedDocument.documentId);
       setIsDocumentModalOpen(true);
     }
   };
@@ -97,42 +105,53 @@ export default function FrequentInquiryModal({ isOpen, onClose, inquiry, detailD
 
         {/* Content */}
         <div className="px-4 py-4 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 200px)' }}>
-          {/* 상세 내용 */}
-          <div className="mb-4">
-            <div className="text-xs text-[#333333] leading-relaxed whitespace-pre-wrap">
-              {detail?.content}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#0047AB]"></div>
+              <span className="ml-2 text-xs text-[#666666]">상세 정보 로딩 중...</span>
             </div>
-          </div>
-
-          {/* 관련 문서 */}
-          <div className="bg-[#F8FAFB] rounded-lg border border-[#E0E0E0] p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="w-4 h-4 text-[#0047AB]" />
-              <h3 className="text-xs font-bold text-[#333333]">관련 문서</h3>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="bg-white rounded-md p-2.5 border border-[#E0E0E0]">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <h4 className="text-xs font-bold text-[#0047AB] mb-1">{detail?.relatedDocument.title}</h4>
-                    <p className="text-[11px] text-[#666666] mb-1.5">{detail?.relatedDocument.summary}</p>
-                    <div className="text-[10px] text-[#999999] italic">
-                      근거 규정: {detail?.relatedDocument.regulation}
-                    </div>
-                  </div>
-                  <button 
-                    className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded bg-[#E8F1FC] hover:bg-[#0047AB] text-[#0047AB] hover:text-white transition-colors text-[10px] font-medium"
-                    title="문서 상세보기"
-                    onClick={handleViewDocument}
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    <span>보기</span>
-                  </button>
+          ) : (
+            <>
+              {/* 상세 내용 */}
+              <div className="mb-4">
+                <div className="text-xs text-[#333333] leading-relaxed whitespace-pre-wrap">
+                  {detail?.content || inquiry.content || ''}
                 </div>
               </div>
-            </div>
-          </div>
+
+              {/* 관련 문서 */}
+              {detail?.relatedDocument && (
+                <div className="bg-[#F8FAFB] rounded-lg border border-[#E0E0E0] p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="w-4 h-4 text-[#0047AB]" />
+                    <h3 className="text-xs font-bold text-[#333333]">관련 문서</h3>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="bg-white rounded-md p-2.5 border border-[#E0E0E0]">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <h4 className="text-xs font-bold text-[#0047AB] mb-1">{detail.relatedDocument.title}</h4>
+                          <p className="text-[11px] text-[#666666] mb-1.5">{detail.relatedDocument.summary}</p>
+                          <div className="text-[10px] text-[#999999] italic">
+                            근거 규정: {detail.relatedDocument.regulation}
+                          </div>
+                        </div>
+                        <button
+                          className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded bg-[#E8F1FC] hover:bg-[#0047AB] text-[#0047AB] hover:text-white transition-colors text-[10px] font-medium"
+                          title="문서 상세보기"
+                          onClick={handleViewDocument}
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>보기</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Footer */}
@@ -152,6 +171,12 @@ export default function FrequentInquiryModal({ isOpen, onClose, inquiry, detailD
           isOpen={isDocumentModalOpen}
           onClose={() => setIsDocumentModalOpen(false)}
           documentId={selectedDocumentId}
+          documentData={detail?.relatedDocument ? {
+            title: detail.relatedDocument.title,
+            content: detail.relatedDocument.summary || '',
+            regulation: detail.relatedDocument.regulation,
+            sourceTable: detail.relatedDocument.sourceTable,
+          } : undefined}
         />
       )}
     </div>

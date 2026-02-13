@@ -27,7 +27,7 @@ export const frequentInquiriesDetailData = [
    - 가족카드는 주카드 회원의 동의가 필요합니다.
    - 해외 분실 시 긴급 카드 발급 서비스(수수료 $30)를 이용하실 수 있습니다.`,
     relatedDocument: {
-      document_id: 'card-1-1-1',  // ⭐ scenarios.ts의 카드 ID
+      documentId: 'card-1-1-1',  // ⭐ scenarios.ts의 카드 ID
       title: '카드 즉시 사용 정지',
       regulation: '여신전문금융업법 제16조',
       summary: '고객의 카드 분실 신고 시 즉시 카드 사용을 정지하여 부정 사용을 방지합니다.'
@@ -63,7 +63,7 @@ export const frequentInquiriesDetailData = [
    - 해외에서 카드 분실 시 긴급 카드 발급 서비스를 이용하실 수 있습니다.
    - 주요 공항에 테디카드 라운지가 있어 즉시 발급 가능합니다.`,
     relatedDocument: {
-      document_id: 'card-2-1-1',  // ⭐ 해외결제 시나리오의 첫 번째 카드
+      documentId: 'card-2-1-1',  // ⭐ 해외결제 시나리오의 첫 번째 카드
       title: '해외 결제 차단 해제',
       regulation: '외국환거래법 제3조',
       summary: '해외 결제 차단 상태를 즉시 해제하고, 해외 사용 설정을 활성화합니다.'
@@ -98,7 +98,7 @@ export const frequentInquiriesDetailData = [
    - 거래 영수증과 카드 번호가 필요합니다.
    - 처리 기간은 3~5 영업일입니다.`,
     relatedDocument: {
-      document_id: 'card-1-2-1',  // ⭐ 포인트 관련 카드 (임시)
+      documentId: 'card-1-2-1',  // ⭐ 포인트 관련 카드 (임시)
       title: '포인트 적립 정책',
       regulation: '여신전문금융업법 제19조',
       summary: '포인트 적립 조건, 제외 업종, 적립 시기를 안내합니다.'
@@ -137,7 +137,7 @@ export const frequentInquiriesDetailData = [
    - 실적 기준: 월 30만원 이상, 연 360만원 이상
    - 실적은 전년도 1월~12월 기준으로 산정`,
     relatedDocument: {
-      document_id: 'card-3-1-1',  // ⭐ 수수료 시나리오의 첫 번째 카드
+      documentId: 'card-3-1-1',  // ⭐ 수수료 시나리오의 첫 번째 카드
       title: '연회비 환불 정책',
       regulation: '여신전문금융업법 제18조',
       summary: '연회비 환불 조건, 신청 방법, 면제 조건을 상세히 안내합니다.'
@@ -183,7 +183,7 @@ export const frequentInquiriesDetailData = [
    - 증액 거부 시 3개월 후 재신청 가능
    - 과도한 증액 신청은 신용평가에 영향을 줄 수 있음`,
     relatedDocument: {
-      document_id: 'card-4-1-1',  // ⭐ 한도증액 시나리오의 첫 번째 카드
+      documentId: 'card-4-1-1',  // ⭐ 한도증액 시나리오의 첫 번째 카드
       title: '신용한도 증액 심사',
       regulation: '여신전문금융업법 제6조',
       summary: '신용한도 증액 신청 방법, 심사 기준, 즉시 증액 조건을 안내합니다.'

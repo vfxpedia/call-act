@@ -1,5 +1,6 @@
 from typing import Any, Dict, Optional
 import asyncio
+import logging
 import os
 
 from app.guide.guide_pipeline import build_guide_response
@@ -9,6 +10,8 @@ from app.rag.pipeline.search import run_search
 from app.rag.cache.doc_title_cache import record_doc_titles
 from app.rag.router.signals import has_vocab_match
 
+logger = logging.getLogger(__name__)
+
 async def run_rag(
     query: str,
     config: Optional[RAGConfig] = None,
@@ -17,11 +20,12 @@ async def run_rag(
     cfg = config or RAGConfig()
     require_vocab_match = os.getenv("RAG_REQUIRE_VOCAB_MATCH", "1") != "0"
     if require_vocab_match and not has_vocab_match(query):
+        logger.info("VocabGate blocked query: %r", query[:80])
         return {
             "currentSituation": [],
             "nextStep": [],
             "guidanceScript": "",
-            "guide_script": {"message": ""},
+            "guide_script": {"message": "무엇을 도와드릴까요? (예: 분실신고, 연회비, 포인트)"},
             "routing": {
                 "should_search": False,
                 "should_route": False,
@@ -88,9 +92,31 @@ async def run_rag(
     if isinstance(guide_result, Exception):
         guide_result = {"guidanceScript": "", "guide_script": {"message": ""}, "meta": {}}
 
+    # M-2 단계3: 흐름 예측 문서를 nextStep에 병합
+    next_step = card_result.get("nextStep", [])
+    flow_docs = getattr(search, "flow_docs", None) or []
+    if flow_docs:
+        from app.llm.rag_llm.card_generator import build_rule_cards
+        existing_ids = {
+            c.get("docId") or c.get("id")
+            for c in card_result.get("currentSituation", []) + next_step
+        }
+        # 중복 제거된 flow docs만 카드 변환
+        unique_flow_docs = [
+            doc for doc in flow_docs
+            if doc.get("id") and doc.get("id") not in existing_ids
+        ]
+        if unique_flow_docs:
+            flow_cards, _ = build_rule_cards(query, unique_flow_docs, max_cards=len(unique_flow_docs))
+            for i, card in enumerate(flow_cards):
+                card["_from_flow_prediction"] = True
+                if i < len(unique_flow_docs):
+                    card["_predicted_category"] = unique_flow_docs[i].get("_predicted_category", "")
+            next_step = next_step + flow_cards
+
     response = {
         "currentSituation": card_result.get("currentSituation", []),
-        "nextStep": card_result.get("nextStep", []),
+        "nextStep": next_step,
         "guidanceScript": guide_result.get("guidanceScript", ""),
         "guide_script": guide_result.get("guide_script", {"message": ""}),
         "routing": card_result.get("routing", card_routing),

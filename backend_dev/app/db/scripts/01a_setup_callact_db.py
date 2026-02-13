@@ -45,6 +45,8 @@ from modules.load_teddycard import load_teddycard_data
 from modules.load_frequent_inquiries import load_frequent_inquiries_data
 from modules.calculate_trends import calculate_all_trends
 from modules.generate_mock import generate_mock_simulation_data, generate_mock_audit_data
+from modules.fix_card_products_data import fix_card_products_data
+from modules.populate_guide_card_names import populate_guide_card_names
 from modules.verify import verify_load, print_checklist
 
 
@@ -105,6 +107,14 @@ def main():
             # 5. 테디카드 데이터 적재
             if not args.skip_teddycard:
                 load_teddycard_data(conn)
+
+            # 5-1. card_products 데이터 품질 보완 (연회비, 실적조건, 브랜드)
+            if not args.skip_teddycard:
+                fix_card_products_data(conn, dry_run=False)
+
+            # 5-2. service_guide_documents card_name 매핑 (D-7)
+            if not args.skip_teddycard:
+                populate_guide_card_names(conn)
 
             # 6. 자주 찾는 문의 데이터 적재
             load_frequent_inquiries_data(conn)

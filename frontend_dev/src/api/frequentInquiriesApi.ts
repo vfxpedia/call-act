@@ -10,8 +10,7 @@ import { USE_MOCK_DATA } from '@/config/mockConfig';
 import { frequentInquiriesData } from '@/data/mock';
 import { frequentInquiriesDetailData } from '@/data/frequentInquiriesDetail';
 
-// API 기본 URL
-const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
+import { API_BASE_URL } from '@/config';
 
 export interface FrequentInquiry {
   id: number;
@@ -21,10 +20,12 @@ export interface FrequentInquiry {
   trend: 'up' | 'down' | 'same';
   content?: string;
   relatedDocument?: {
-    document_id: string;
+    documentId: string;
     title: string;
     regulation?: string;
     summary?: string;
+    sourceTable?: string;
+    documentType?: string;
   };
 }
 

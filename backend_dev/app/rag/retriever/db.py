@@ -240,12 +240,13 @@ def _source_sql(table: str, include_embedding: bool) -> str:
             "'source_table', 'card_products'"
             ")"
         )
-        embedding_expr = "NULL::vector(1536) AS embedding"
+        embedding_expr = "embedding"
     elif actual == "service_guide_documents":
         content_expr = "content"
         metadata_expr = (
             "COALESCE(metadata, '{}'::jsonb) || jsonb_build_object("
             "'title', title, "
+            "'card_name', COALESCE(metadata->>'card_name', ''), "
             "'category', category, "
             "'category1', document_type, "
             "'source_table', 'service_guide_documents'"
@@ -403,6 +404,12 @@ def build_where_clause(
             if phone_group:
                 clauses.append(phone_group)
 
+        # B-7: 가이드 테이블에서도 card_name으로 content/title/metadata 필터링
+        if card_terms:
+            card_group = _build_like_group(card_terms, params)
+            if card_group:
+                clauses.append(card_group)
+
         guide_terms = _expand_guide_terms(unique_in_order([*intent_values, *weak_values]))
         guide_group = _build_like_group(guide_terms, params)
         if guide_group:
@@ -440,6 +447,12 @@ def build_where_clause(
         if payment_group:
             clauses.append(payment_group)
 
+    # 특수카드 ID 패턴 제외 (B-6: 쿼리에 특수카드명이 없을 때 오염 방지)
+    exclude_id_patterns = _as_list(filters.get("exclude_id_patterns"))
+    if exclude_id_patterns:
+        clauses.append("NOT (id LIKE ANY(%s))")
+        params.append(exclude_id_patterns)
+
     if not clauses:
         return "", []
     return " WHERE " + " AND ".join(clauses), params
@@ -453,12 +466,7 @@ def vector_search(
 ) -> List[Tuple[object, str, Dict[str, object], float]]:
     table = _safe_table(table)
     actual_table = _resolve_table(table)
-    # card_products는 embedding이 없으므로 text_search로 처리
-    if actual_table == "card_products":
-        terms = _extract_query_terms(query)
-        if not terms and query.strip():
-            terms = [query.strip()]
-        return text_search(table=table, terms=terms, limit=limit, filters=filters)
+    # B-8: card_products도 임베딩 활성화 (398건 100% 임베딩 확인됨)
     emb = Vector(embed_query(query))
     where_sql, where_params = build_where_clause(filters, table)
     with _db_conn() as conn:
@@ -592,6 +600,7 @@ def text_search(
         actual_table = _resolve_table(table)
         card_values = _as_list(filters.get("card_name"))
         require_card_name_match = bool(filters.get("require_card_name_match"))
+        logger.info(f"[text_search] card_table={actual_table}, card_values={card_values}, terms={terms}")
         if card_values:
             # 1차: normalized card_name 인덱스 기반 후보 추출
             eq_any = [str(v).replace(' ', '').lower() for v in card_values]
@@ -614,6 +623,7 @@ def text_search(
             if not id_candidates:
                 like_any = [f"%{str(v)}%" for v in card_values]
                 no_space_any = [f"%{str(v).replace(' ', '')}%" for v in card_values]
+                logger.info(f"[text_search] Fallback ILIKE: like_any={like_any}, no_space_any={no_space_any}")
                 with _db_conn() as conn:
                     with conn.cursor() as cur:
                         sql = (
@@ -627,6 +637,7 @@ def text_search(
                         )
                         cur.execute(sql, [no_space_any, no_space_any, like_any, like_any, like_any])
                         id_candidates = [row[0] for row in cur.fetchall()]
+                        logger.info(f"[text_search] ILIKE found {len(id_candidates)} candidates")
             # 후보가 없으면 terms 기반 본문(content) 검색을 추가로 시도
             if not id_candidates:
                 if require_card_name_match:
@@ -663,7 +674,8 @@ def text_search(
             source_sql = (
                 "SELECT id, "
                 "COALESCE(name, '') || E'\n\n' || COALESCE(main_benefits, '') || E'\n\n' || COALESCE(performance_condition, '') AS content, "
-                "metadata, structured FROM " + actual_table +
+                "COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('title', name, 'card_name', name, 'name', name) AS metadata, "
+                "structured FROM " + actual_table +
                 " WHERE id = ANY(%s)"
             )
             with _db_conn() as conn:
@@ -679,11 +691,13 @@ def text_search(
                     rows = cur.fetchall()
                     if not rows and like_clause:
                         # terms 필터로 모두 걸러진 경우 id 후보 전체를 반환
+                        logger.info(f"[text_search] Terms filter removed all, returning all {len(id_candidates)} candidates")
                         cur.execute(
                             "WITH source AS (" + source_sql + ") SELECT id, content, metadata, structured, 0.0 AS score FROM source LIMIT %s",
                             [id_candidates, limit],
                         )
                         rows = cur.fetchall()
+            logger.info(f"[text_search] Returning {len(rows)} card_products rows")
             return rows
     
     id_prefix = filters.get("id_prefix")
@@ -726,6 +740,23 @@ def text_search(
             like_where = exclude_sql
             like_params.extend([exclude_like_any, exclude_like_any, exclude_like_any])
     
+    # 특수카드 ID 패턴 제외 (B-6)
+    exclude_id_patterns = _as_list(filters.get("exclude_id_patterns"))
+    if exclude_id_patterns:
+        exclude_id_sql = "NOT (id LIKE ANY(%s))"
+        if use_trgm and trgm_where:
+            trgm_where = _and_conditions(trgm_where, exclude_id_sql)
+            trgm_params.append(exclude_id_patterns)
+        elif use_trgm and trgm_where == "":
+            trgm_where = exclude_id_sql
+            trgm_params.append(exclude_id_patterns)
+        if like_where:
+            like_where = _and_conditions(like_where, exclude_id_sql)
+            like_params.append(exclude_id_patterns)
+        else:
+            like_where = exclude_id_sql
+            like_params.append(exclude_id_patterns)
+
     if not trgm_where and not like_where:
         return []
 

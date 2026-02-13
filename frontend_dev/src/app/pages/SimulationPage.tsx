@@ -1,9 +1,12 @@
 import { Play, Clock, TrendingUp, Target, Shield, Users, Star, ChevronLeft, ChevronRight, Award, BookOpen, Lock, Trophy } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useState, useEffect } from 'react';
-import { consultationsData, simulationScenariosData, recentAttemptsData } from '@/data/mock';
+import { simulationScenariosData, recentAttemptsData } from '@/data/mock';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
+import { fetchConsultations, type ConsultationItem } from '@/api/consultationApi';
+import { TutorialGuide } from '@/app/components/tutorial/TutorialGuide';
+import { tutorialStepsSimulation } from '@/data/tutorialSteps';
 
 // ⭐ Mock 데이터에서 가져오기
 const scenarios = simulationScenariosData;
@@ -11,9 +14,12 @@ const recentAttempts = recentAttemptsData;
 
 export default function SimulationPage() {
   const navigate = useNavigate();
-  const [consultations, setConsultations] = useState([]);
+  const [consultations, setConsultations] = useState<ConsultationItem[]>([]);
   const [scenarioPage, setScenarioPage] = useState(1);
   const [bestPracticePage, setBestPracticePage] = useState(1);
+
+  // ⭐ 시뮬레이션 페이지 가이드 상태
+  const [isSimGuideActive, setIsSimGuideActive] = useState(false);
   
   const SCENARIOS_PER_PAGE = 4;
   const BEST_PRACTICES_PER_PAGE = 4;
@@ -56,46 +62,48 @@ export default function SimulationPage() {
     });
   };
 
+  // ⭐ 시뮬레이션 페이지 진입 시 자동 가이드 시작 (첫 방문)
   useEffect(() => {
-    const loadConsultations = () => {
-      const saved = localStorage.getItem('consultations');
-      if (saved) {
-        try {
-          const data = JSON.parse(saved);
-          // ⭐ 우수사례 2개 추가 (CS-EMP021, CS-EMP015를 isBestPractice: true로 변경)
-          return data.map(c => {
-            if (c.id === 'CS-EMP021-202501041520' || c.id === 'CS-EMP015-202501031155') {
-              return { ...c, isBestPractice: true };
-            }
-            return c;
-          });
-        } catch (error) {
-          console.error('상담 데이터 로드 실패:', error);
-          return consultationsData.map(c => {
-            if (c.id === 'CS-EMP021-202501041520' || c.id === 'CS-EMP015-202501031155') {
-              return { ...c, isBestPractice: true };
-            }
-            return c;
-          });
-        }
-      }
-      return consultationsData.map(c => {
-        if (c.id === 'CS-EMP021-202501041520' || c.id === 'CS-EMP015-202501031155') {
-          return { ...c, isBestPractice: true };
-        }
-        return c;
-      });
-    };
+    const simGuideCompleted = localStorage.getItem('sim-guide-completed');
+    if (!simGuideCompleted) {
+      setIsSimGuideActive(true);
+    }
+  }, []);
 
-    const data = loadConsultations();
-    setConsultations(data);
-    // ⭐ localStorage에도 저장 (우수사례 추가 반영)
-    localStorage.setItem('consultations', JSON.stringify(data));
+  // ⭐ 헤더 가이드 버튼 클릭 감지
+  useEffect(() => {
+    const handleStartGuideRequest = () => {
+      const requested = localStorage.getItem('startGuideRequested');
+      if (requested === 'true') {
+        localStorage.removeItem('startGuideRequested');
+        setIsSimGuideActive(true);
+      }
+    };
+    window.addEventListener('storage', handleStartGuideRequest);
+    return () => window.removeEventListener('storage', handleStartGuideRequest);
+  }, []);
+
+  useEffect(() => {
+    const loadConsultations = async () => {
+      try {
+        // 우수사례만 별도 조회 (날짜 무관하게 전체 조회)
+        const bpData = await fetchConsultations({ limit: 50, isBestPractice: true });
+        // 최신 상담 목록도 함께 로드
+        const recentData = await fetchConsultations({ limit: 200 });
+        // 병합 (중복 제거)
+        const bpIds = new Set(bpData.map(c => c.id));
+        const merged = [...bpData, ...recentData.filter(c => !bpIds.has(c.id))];
+        setConsultations(merged);
+      } catch (error) {
+        console.error('상담 데이터 로드 실패:', error);
+      }
+    };
+    loadConsultations();
   }, []);
 
   return (
     <MainLayout>
-      <div className="h-[calc(100vh-60px)] flex flex-col p-3 gap-3 overflow-hidden">
+      <div className="h-[var(--content-height)] flex flex-col p-3 gap-3 overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-[#0047AB] to-[#4A90E2] rounded-lg shadow-sm p-3 text-white border border-[#0047AB] flex-shrink-0">
           <h1 className="text-base font-bold mb-1">교육 시뮬레이션</h1>
@@ -126,12 +134,11 @@ export default function SimulationPage() {
         </div>
 
         {/* ⭐ Main Content Grid - 고정 높이 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-1 min-h-0 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-1 min-h-0">
           {/* Left - Scenarios */}
-          <div className="lg:col-span-2 flex flex-col gap-3 min-h-0 overflow-hidden">
+          <div className="lg:col-span-2 flex flex-col gap-3 min-h-0">
             {/* ⭐ 우수 상담 사례 - 50% 높이 */}
-            {consultations.filter(c => c.isBestPractice).length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm h-[calc(50%-6px)] flex flex-col overflow-hidden">
+            <div id="sim-best-practices-section" className="bg-white rounded-lg shadow-sm flex-1 min-h-0 flex flex-col overflow-hidden">
                 <div className="p-3 border-b border-[#E0E0E0] flex-shrink-0 flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-bold text-[#333333] flex items-center gap-2">
@@ -141,8 +148,8 @@ export default function SimulationPage() {
                     <p className="text-xs text-[#666666] mt-0.5">실제 우수 상담 사례를 시뮬레이션으로 학습하세요</p>
                   </div>
                   
-                  {/* ⭐ 페이지네이션 (항상 표시) */}
-                  <div className="flex items-center gap-1.5">
+                  {/* ⭐ 페이지네이션 (우수사례가 있을 때만 표시) */}
+                  {bestPractices.length > 0 && <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => setBestPracticePage(prev => Math.max(1, prev - 1))}
                       disabled={bestPracticePage === 1}
@@ -180,11 +187,17 @@ export default function SimulationPage() {
                     >
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
-                  </div>
+                  </div>}
                 </div>
                 
                 <div className="p-3 flex-1 overflow-hidden">
-                  {/* ⭐ 모든 여백 12px 통일: 카드 크기 각 방향 2px 확장 */}
+                  {bestPractices.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <Award className="w-10 h-10 text-[#E0E0E0] mb-2" />
+                      <p className="text-sm text-[#999999]">등록된 우수사례가 없습니다</p>
+                      <p className="text-xs text-[#CCCCCC] mt-1">상담 관리에서 우수사례를 등록해주세요</p>
+                    </div>
+                  ) : (
                   <div className="flex flex-wrap gap-3 h-full content-start">
                     {currentBestPractices.map((consultation) => (
                       <div 
@@ -248,12 +261,12 @@ export default function SimulationPage() {
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
               </div>
-            )}
 
             {/* ⭐ 기본 시나리오 - 50% 높이 */}
-            <div className="bg-white rounded-lg shadow-sm h-[calc(50%-6px)] flex flex-col overflow-hidden">
+            <div id="sim-basic-scenarios-section" className="bg-white rounded-lg shadow-sm flex-1 min-h-0 flex flex-col overflow-hidden">
               <div className="p-3 border-b border-[#E0E0E0] flex-shrink-0 flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-bold text-[#333333] flex items-center gap-2">
@@ -407,7 +420,7 @@ export default function SimulationPage() {
           </div>
 
           {/* Right - Recent Attempts */}
-          <div className="bg-white rounded-lg shadow-sm flex flex-col overflow-hidden">
+          <div id="sim-recent-section" className="bg-white rounded-lg shadow-sm flex flex-col overflow-hidden">
             <div className="p-3 border-b border-[#E0E0E0] flex-shrink-0">
               <h2 className="text-sm font-bold text-[#333333] flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-[#FBBC04]" />
@@ -449,6 +462,20 @@ export default function SimulationPage() {
           </div>
         </div>
       </div>
+      {/* ⭐ 시뮬레이션 페이지 가이드 */}
+      <TutorialGuide
+        steps={tutorialStepsSimulation}
+        isActive={isSimGuideActive}
+        onComplete={() => {
+          setIsSimGuideActive(false);
+          localStorage.setItem('sim-guide-completed', 'true');
+        }}
+        onSkip={() => {
+          setIsSimGuideActive(false);
+          localStorage.setItem('sim-guide-completed', 'true');
+        }}
+        themeColor="#0047AB"
+      />
     </MainLayout>
   );
 }

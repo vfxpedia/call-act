@@ -36,10 +36,16 @@ export interface Customer {
  */
 export interface ReferencedDocument {
   stepNumber: number;       // RAG 조회 순서
-  documentId: string;       // DOC-123
+  documentId: string;       // DB 원본 ID (예: CARD-SHINHAN-xxx, 카드분실_xxx_merged)
   title: string;
   used: boolean;            // 클릭 여부
   viewCount?: number;       // 조회 횟수 (상담 중)
+  // Phase A 확장 (optional - 하위 호환)
+  documentType?: string;    // 'terms' | 'product-spec' | 'guide' | 'general' | 'analysis-report'
+  sourceTable?: string;     // 'card_products' | 'service_guide_documents' | 'notices' 등
+  category?: string;        // 상담 카테고리
+  relevanceScore?: number;  // RAG 검색 점수 (0-100)
+  content?: string;         // 요약 내용 (재참조 시 표시용)
 }
 
 // ========================================
@@ -141,6 +147,7 @@ export interface SaveConsultationRequest {
   customerId: string;
   customerName: string;     // 고객명은 참고용 (FK는 customerId)
   category: string;
+  categoryRaw?: string;     // LLM 세부 카테고리 (47개 중 택1)
   title: string;
   status: string;
   datetime: string;
@@ -158,6 +165,8 @@ export interface SaveConsultationRequest {
   sentiment?: string;
   feedbackScore?: number;   // ⭐ Phase 10-5: 피드백 점수 (100점 만점, 0-100)
   satisfactionScore?: number; // ⭐ Phase 10-5: 고객 만족도 (5점 만점, 1-5)
+  feedbackText?: string;     // ⭐ Level02: 피드백 텍스트
+  feedbackEmotions?: string[]; // ⭐ Level02: 감정 변화 [초반, 중반, 후반]
 }
 
 /**

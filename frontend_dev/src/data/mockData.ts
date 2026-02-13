@@ -530,12 +530,13 @@ export const employeesData = [
   { id: 'EMP-050', name: '왕혁준', team: '상담3팀', position: '사원', consultations: 88, fcr: 83, avgTime: '5:45', rank: 50, trend: 'up' as const, status: 'active' as const, joinDate: '2024-10-01', email: 'wanghj@teddycard.com', phone: '010-6802-5791' },
 ];
 
-// ==================== 시뮬레이션 데이터 ====================
+// ==================== 시뮬레이션 데이터 (대시보드 추천 카드) ====================
+// scenarioId는 실제 시나리오 ID (scenario-1 ~ scenario-8)와 일치해야 함
 export const simulationsData = [
-  { id: 1, title: '카드 분실 신고 및 재발급', category: '기본 상담', difficulty: '초급', duration: '5분', icon: 'Target' as const, color: '#34A853' },
-  { id: 2, title: '해외 결제 차단 해제 요청', category: '긴급 처리', difficulty: '중급', duration: '7분', icon: 'Shield' as const, color: '#FBBC04' },
-  { id: 3, title: '진상 고객 감정 전환 마스터', category: '민원 대응', difficulty: '고급', duration: '12분', icon: 'Users' as const, color: '#EA4335' },
-  { id: 4, title: '크로스셀 영업 스킬 실전', category: '영업 스킬', difficulty: '중급', duration: '8분', icon: 'TrendingUp' as const, color: '#0047AB' },
+  { id: 1, scenarioId: 'scenario-1', title: '카드 분실 신고 및 재발급', category: '카드분실', difficulty: '초급', duration: '5분', icon: 'Shield' as const, color: '#EA4335' },
+  { id: 2, scenarioId: 'scenario-3', title: '해외 결제 차단 해제 요청', category: '해외결제', difficulty: '중급', duration: '7분', icon: 'Target' as const, color: '#0047AB' },
+  { id: 3, scenarioId: 'scenario-5', title: '연체 상환 방법 안내', category: '연체문의', difficulty: '고급', duration: '10분', icon: 'Users' as const, color: '#FBBC04' },
+  { id: 4, scenarioId: 'scenario-6', title: '포인트 적립/사용 안내', category: '포인트/혜택', difficulty: '중급', duration: '8분', icon: 'TrendingUp' as const, color: '#34A853' },
 ];
 
 // ==================== 시뮬레이션 시나리오 상세 데이터 ====================
@@ -619,26 +620,6 @@ export const recentAttemptsData = [
   { id: 1, scenario: 'SIM-001', title: '카드 분실 신고 및 재발급', score: 95, date: '2025-01-05 14:30', duration: '4분 50초' },
   { id: 2, scenario: 'SIM-002', title: '해외 결제 차단 해제 요청', score: 88, date: '2025-01-04 10:20', duration: '6분 35초' },
   { id: 3, scenario: 'SIM-001', title: '카드 분실 신고 및 재발급', score: 92, date: '2025-01-03 16:10', duration: '5분 10초' },
-];
-
-// ==================== 대시보드 통계 데이터 ====================
-export const dashboardStatsData = {
-  todayCalls: 127,
-  completed: 95,
-  pending: 12,
-  incomplete: 20
-};
-
-export const weeklyGoalData = {
-  target: 500,
-  current: 389,
-  percentage: 78
-};
-
-export const teamStatsData = [
-  { team: 'A팀', calls: 142, fcr: 94, color: '#0047AB' },
-  { team: 'B팀', calls: 128, fcr: 89, color: '#34A853' },
-  { team: 'C팀', calls: 119, fcr: 91, color: '#FBBC04' },
 ];
 
 // ==================== 프로필 배지 데이터 ====================

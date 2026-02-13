@@ -131,6 +131,31 @@ export const tutorialOffsets: Record<string, TooltipOffset> = {
   },
 
   // ==========================================
+  // 교육 시뮬레이션 페이지
+  // ==========================================
+
+  "sim-best-practices-section": {
+    offsetY: 0,
+    offsetX: 0,
+    useTargetSize: false,
+    scaleWithViewport: true,
+  },
+
+  "sim-basic-scenarios-section": {
+    offsetY: 0,
+    offsetX: 0,
+    useTargetSize: false,
+    scaleWithViewport: true,
+  },
+
+  "sim-recent-section": {
+    offsetY: 0,
+    offsetX: 0,
+    useTargetSize: false,
+    scaleWithViewport: true,
+  },
+
+  // ==========================================
   // Phase 3: 후처리
   // ==========================================
 
@@ -178,7 +203,10 @@ export const tutorialOffsets: Record<string, TooltipOffset> = {
  */
 export function getViewportScale(): number {
   const baseWidth = 1920;
-  const currentWidth = window.innerWidth;
+  const cssZoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+  // CSS zoom 적용 시 window.innerWidth가 논리적 뷰포트로 변경될 수 있으므로
+  // 물리적 뷰포트 너비로 정규화
+  const currentWidth = window.innerWidth * cssZoom;
 
   // 최소 0.8배 ~ 최대 2.0배 스케일
   return Math.min(Math.max(currentWidth / baseWidth, 0.8), 2.0);

@@ -154,8 +154,61 @@ def check_main_benefits_truncation(main_benefits: str, full_content: str) -> boo
 # 메인 수정 함수
 # ==============================================================================
 
+def _parse_fee_from_structured(structured: dict) -> Optional[int]:
+    """structured.annualFee.domestic에서 연회비 파싱
+
+    D-13 검증 로직: "없음"/"면제" → 0, 숫자 문자열 → int, None → None
+    """
+    if not structured:
+        return None
+    annual_fee = structured.get("annualFee")
+    if not annual_fee or not isinstance(annual_fee, dict):
+        return None
+    domestic = annual_fee.get("domestic")
+    if domestic is None:
+        return None
+    domestic_str = str(domestic).strip()
+    if not domestic_str:
+        return None
+    # "없음", "면제", "없음/면제" 등
+    if any(kw in domestic_str for kw in ("없음", "면제", "해당없음")):
+        return 0
+    # 숫자 추출 (콤마 제거, "원" 제거)
+    numbers = re.findall(r"[\d,]+", domestic_str.replace(",", ""))
+    if numbers:
+        try:
+            # 가장 큰 숫자를 선택 (prefix 오파싱 방지)
+            candidates = [int(n.replace(",", "")) for n in re.findall(r"[\d,]+", domestic_str)]
+            return max(candidates) if candidates else None
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def _extract_performance_condition(structured: dict) -> Optional[str]:
+    """structured.performanceConditions에서 실적 조건 추출"""
+    if not structured:
+        return None
+    perf = structured.get("performanceConditions")
+    if not perf:
+        return None
+    if isinstance(perf, str):
+        text = perf.strip()
+        return text if text and text != "없음" else None
+    if isinstance(perf, list):
+        parts = [str(p).strip() for p in perf if p and str(p).strip() and str(p).strip() != "없음"]
+        return "; ".join(parts) if parts else None
+    return None
+
+
 def fix_card_products_data(conn: psycopg2_connection, dry_run: bool = True) -> Dict[str, Any]:
     """card_products 테이블 데이터 품질 보완
+
+    D-13 로직 통합:
+    - 체크카드(debit): annual_fee_domestic = 0
+    - 신용카드(credit): structured.annualFee에서 파싱, fallback → full_content
+    - performance_condition: structured.performanceConditions에서 추출
+    - brand: 카드명/full_content에서 추론
 
     Args:
         conn: PostgreSQL 연결
@@ -171,10 +224,9 @@ def fix_card_products_data(conn: psycopg2_connection, dry_run: bool = True) -> D
 
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-    # 현재 데이터 조회
     cursor.execute("""
-        SELECT id, name, brand, annual_fee_domestic, annual_fee_global,
-               main_benefits, metadata
+        SELECT id, name, brand, card_type, annual_fee_domestic, annual_fee_global,
+               performance_condition, main_benefits, metadata, structured
         FROM card_products
     """)
     rows = cursor.fetchall()
@@ -184,6 +236,7 @@ def fix_card_products_data(conn: psycopg2_connection, dry_run: bool = True) -> D
         'brand_null_fixed': 0,
         'annual_fee_domestic_fixed': 0,
         'annual_fee_global_fixed': 0,
+        'performance_condition_fixed': 0,
         'main_benefits_truncated': 0,
         'updates': []
     }
@@ -191,11 +244,14 @@ def fix_card_products_data(conn: psycopg2_connection, dry_run: bool = True) -> D
     for row in rows:
         card_id = row['id']
         name = row['name'] or ''
+        card_type = str(row.get('card_type') or '')
         current_brand = row['brand']
         current_domestic = row['annual_fee_domestic']
         current_global = row['annual_fee_global']
+        current_perf = row.get('performance_condition')
         main_benefits = row['main_benefits'] or ''
         metadata = row['metadata'] or {}
+        structured = row.get('structured') or {}
         full_content = metadata.get('full_content', '')
 
         updates = {}
@@ -206,15 +262,29 @@ def fix_card_products_data(conn: psycopg2_connection, dry_run: bool = True) -> D
             if new_brand:
                 updates['brand'] = new_brand
                 stats['brand_null_fixed'] += 1
-                print(f"  [BRAND] {card_id}: NULL -> '{new_brand}'")
 
-        # 2. annual_fee_domestic NULL 보완
+        # 2. annual_fee_domestic NULL 보완 (D-13 로직)
         if current_domestic is None:
-            extracted_domestic, _ = extract_annual_fee_from_content(full_content)
-            if extracted_domestic:
-                updates['annual_fee_domestic'] = extracted_domestic
+            if card_type == 'debit':
+                # 체크카드는 연회비 없음
+                updates['annual_fee_domestic'] = 0
                 stats['annual_fee_domestic_fixed'] += 1
-                print(f"  [FEE_DOM] {card_id}: NULL -> {extracted_domestic}")
+            else:
+                # structured.annualFee에서 우선 추출
+                fee = _parse_fee_from_structured(structured)
+                if fee is not None:
+                    updates['annual_fee_domestic'] = fee
+                    stats['annual_fee_domestic_fixed'] += 1
+                else:
+                    # fallback: full_content 패턴 매칭
+                    extracted_domestic, _ = extract_annual_fee_from_content(full_content)
+                    if extracted_domestic is not None:
+                        updates['annual_fee_domestic'] = extracted_domestic
+                        stats['annual_fee_domestic_fixed'] += 1
+                    else:
+                        # 파트너/특수 카드 등: 0으로 기본값
+                        updates['annual_fee_domestic'] = 0
+                        stats['annual_fee_domestic_fixed'] += 1
 
         # 3. annual_fee_global NULL 보완
         if current_global is None:
@@ -222,12 +292,17 @@ def fix_card_products_data(conn: psycopg2_connection, dry_run: bool = True) -> D
             if extracted_global:
                 updates['annual_fee_global'] = extracted_global
                 stats['annual_fee_global_fixed'] += 1
-                print(f"  [FEE_GLB] {card_id}: NULL -> {extracted_global}")
 
-        # 4. main_benefits 잘림 확인
+        # 4. performance_condition 보완 (D-13 로직)
+        if not current_perf:
+            perf = _extract_performance_condition(structured)
+            if perf:
+                updates['performance_condition'] = perf
+                stats['performance_condition_fixed'] += 1
+
+        # 5. main_benefits 잘림 확인
         if check_main_benefits_truncation(main_benefits, full_content):
             stats['main_benefits_truncated'] += 1
-            print(f"  [TRUNCATED] {card_id}: main_benefits가 잘려있음 (길이: {len(main_benefits)})")
 
         # 업데이트 실행
         if updates and not dry_run:
@@ -245,17 +320,13 @@ def fix_card_products_data(conn: psycopg2_connection, dry_run: bool = True) -> D
 
     cursor.close()
 
-    # 결과 출력
-    print("\n" + "-" * 40)
-    print("[결과 요약]")
-    print(f"  총 카드 수: {stats['total']}")
     print(f"  brand NULL 보완: {stats['brand_null_fixed']}건")
     print(f"  annual_fee_domestic NULL 보완: {stats['annual_fee_domestic_fixed']}건")
     print(f"  annual_fee_global NULL 보완: {stats['annual_fee_global_fixed']}건")
+    print(f"  performance_condition 보완: {stats['performance_condition_fixed']}건")
     print(f"  main_benefits 잘림 감지: {stats['main_benefits_truncated']}건")
     if not dry_run:
         print(f"  실제 업데이트: {len(stats['updates'])}건")
-    print("-" * 40)
 
     return stats
 

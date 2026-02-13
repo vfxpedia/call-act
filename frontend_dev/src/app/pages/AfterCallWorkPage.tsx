@@ -144,6 +144,7 @@ export default function AfterCallWorkPage() {
           status: string;
           category: string;
           subcategory: string;
+          categoryRaw?: string;
           aiSummary: string;
           followUpTasks: string;
           handoffDepartment: string;
@@ -163,6 +164,7 @@ export default function AfterCallWorkPage() {
               status: llmResult.status || '완료',
               category: llmResult.category || '기타',
               subcategory: llmResult.subcategory || '기타',
+              categoryRaw: llmResult.categoryRaw || '',
               aiSummary: llmResult.aiSummary || '',
               followUpTasks: llmResult.followUpTasks || '',
               handoffDepartment: llmResult.handoffDepartment || '없음',
@@ -281,6 +283,9 @@ export default function AfterCallWorkPage() {
           subcategory: aiAnalysisData!.subcategory,
           handoffDepartment: aiAnalysisData!.handoffDepartment || '없음',
         }));
+        if (aiAnalysisData!.categoryRaw) {
+          setCategoryRaw(aiAnalysisData!.categoryRaw);
+        }
 
         console.log('✅ [ACW 로드] 대분류:', aiAnalysisData.category);
         console.log('✅ [ACW 로드] 중분류:', aiAnalysisData.subcategory);
@@ -392,6 +397,11 @@ export default function AfterCallWorkPage() {
           setAiSummary(llmData.aiSummary);
         }
 
+        // 세부 카테고리 업데이트
+        if (llmData.categoryRaw) {
+          setCategoryRaw(llmData.categoryRaw);
+        }
+
         // ⭐ [v25] 통화 시작 시간/통화 시간 로드 (타임스탬프 계산용)
         const evtStartTime = localStorage.getItem('consultationStartTime') || '';
         const evtCallTime = parseInt(localStorage.getItem('callTime') || '0', 10);
@@ -464,6 +474,7 @@ export default function AfterCallWorkPage() {
     handoffDepartment: '없음',
     handoffNotes: '',
   });
+  const [categoryRaw, setCategoryRaw] = useState<string>('');
   
   // ⭐ 고정된 중분류 15개 옵션
   const SUBCATEGORIES = [
@@ -497,14 +508,19 @@ export default function AfterCallWorkPage() {
   // 모바일 탭 상태 (모바일/태블릿 전용)
   const [mobileTab, setMobileTab] = useState<'transcript' | 'acw'>('acw');
   
-  // ⭐ Phase 8-1: 참조 문서 상태
+  // ⭐ Phase 8-1: 참조 문서 상태 (sourceTable, documentType 포함)
   const [referencedDocuments, setReferencedDocuments] = useState<Array<{
     stepNumber: number;
     documentId: string;
     title: string;
     used: boolean;
+    sourceTable?: string;
+    documentType?: string;
+    content?: string;
   }>>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [selectedDocumentTitle, setSelectedDocumentTitle] = useState<string | null>(null);
+  const [selectedDocumentSourceTable, setSelectedDocumentSourceTable] = useState<string | undefined>(undefined);
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   
   // ⭐ Phase 8-2: 피드백 모달 상태
@@ -732,19 +748,14 @@ export default function AfterCallWorkPage() {
           }
         }
         
-        // 클릭된 문서를 우선순위로 정렬
+        // 1차: 유사도 높은 순, 2차: 클릭된 문서 우선
         const sortedDocs = docs.sort((a: any, b: any) => {
-          const aIndex = clickedDocs.indexOf(a.documentId);
-          const bIndex = clickedDocs.indexOf(b.documentId);
-          
-          // 둘 다 클릭되지 않음 → 원래 순서 유지
-          if (aIndex === -1 && bIndex === -1) return 0;
-          // a만 클릭됨 → a를 앞으로
-          if (aIndex !== -1 && bIndex === -1) return -1;
-          // b만 클릭됨 → b를 앞으로
-          if (aIndex === -1 && bIndex !== -1) return 1;
-          // 둘 다 클릭됨 → 클릭 순서대로
-          return aIndex - bIndex;
+          const aClicked = clickedDocs.indexOf(a.documentId) !== -1;
+          const bClicked = clickedDocs.indexOf(b.documentId) !== -1;
+          // 클릭 여부가 다르면 클릭된 쪽 우선
+          if (aClicked !== bClicked) return aClicked ? -1 : 1;
+          // 둘 다 같은 상태면 유사도 순
+          return (b.relevanceScore || 0) - (a.relevanceScore || 0);
         });
         
         console.log('✅ [후처리] 정렬된 참조 문서:', sortedDocs);
@@ -783,9 +794,10 @@ export default function AfterCallWorkPage() {
     // "오늘 하루 보지 않기" 설정 확인
     const feedbackDontShowUntil = localStorage.getItem('feedbackDontShowUntil');
     const today = new Date().toDateString();
-    
-    // 오늘은 피드백을 보지 않기로 설정되어 있으면 바로 저장
+
+    // 오늘은 피드백을 보지 않기로 설정되어 있으면 바로 저장 (피드백 점수 없이)
     if (feedbackDontShowUntil === today) {
+      localStorage.removeItem('feedbackScores'); // 이전 피드백 점수 제거
       handleSaveACW();
     } else {
       // 피드백 모달 표시
@@ -826,6 +838,27 @@ export default function AfterCallWorkPage() {
         })))
       : undefined;
 
+    // ⭐ 피드백 점수 로드 (FeedbackModal에서 저장)
+    let feedbackScore: number | undefined;
+    let satisfactionScore: number | undefined;
+    let feedbackText: string | undefined;
+    let sentiment: string | undefined;
+    let feedbackEmotions: string[] | undefined;
+    try {
+      const feedbackScoresStr = localStorage.getItem('feedbackScores');
+      if (feedbackScoresStr) {
+        const scores = JSON.parse(feedbackScoresStr);
+        feedbackScore = scores.feedbackScore;
+        satisfactionScore = scores.satisfactionScore;
+        feedbackText = scores.feedbackText;
+        sentiment = scores.sentiment;
+        feedbackEmotions = scores.feedbackEmotions;
+        console.log('📊 [후처리] 피드백 점수 적용:', { feedbackScore, satisfactionScore, sentiment, feedbackEmotions });
+      }
+    } catch (e) {
+      console.warn('⚠️ [후처리] 피드백 점수 파싱 실패');
+    }
+
     const acwData: SaveConsultationRequest = {
       consultationId: pageData.callInfo.id,
       employeeId: localStorage.getItem('employeeId') || 'EMP-001',  // ⭐ Phase A: employeeId 추가
@@ -834,6 +867,7 @@ export default function AfterCallWorkPage() {
       title: formData.title,
       status: formData.status,
       category: formData.category,
+      categoryRaw: categoryRaw || undefined,
       aiSummary: aiSummary,
       memo: memo,
       transcript: transcriptJson,  // ⭐ [v24] 상담 전문 (화자분리 결과) 추가
@@ -853,6 +887,12 @@ export default function AfterCallWorkPage() {
         action: item.action,
         category: item.categoryRaw ? `${item.categoryRaw.mainCategory} > ${item.categoryRaw.subCategory}` : null
       })),
+      // ⭐ 피드백 점수 (FeedbackModal에서 계산된 값)
+      feedbackScore,
+      satisfactionScore,
+      feedbackText,
+      sentiment,
+      feedbackEmotions,
     };
 
     try {
@@ -892,6 +932,8 @@ export default function AfterCallWorkPage() {
       localStorage.removeItem('llmApiResult');
       localStorage.removeItem('consultationTranscript');
       localStorage.removeItem('useLLMScript');
+      localStorage.removeItem('feedbackScores');
+      localStorage.removeItem('educationScores');
 
       // 4. ⭐ [v24] RAG 관련 데이터 삭제 (있다면)
       localStorage.removeItem('ragSessionId');
@@ -933,10 +975,11 @@ export default function AfterCallWorkPage() {
   return (
     <MainLayout>
       <div 
-        className={`flex bg-white fixed top-[60px] right-0 bottom-0 overflow-hidden transition-opacity duration-600 ease-out ${
+        className={`flex bg-white fixed right-0 bottom-0 overflow-hidden transition-opacity duration-600 ease-out ${
           isFadingIn ? 'opacity-0' : 'opacity-100'
         } transition-all duration-300`}
         style={{
+          top: 'var(--header-height, 60px)',
           left: `${isSidebarExpanded ? 200 : 56}px`,
           // ⭐ 튜토리얼 활성화 시 z-index를 낮춰서 오버레이 아래로 들어가게
           zIndex: isTutorialActive ? 1 : 'auto',
@@ -987,11 +1030,23 @@ export default function AfterCallWorkPage() {
           <div id="acw-transcript" className="flex-shrink-0 mb-3 flex flex-col" style={{ height: '45%' }}>
             <h3 className="py-2 border-b border-[#E0E0E0] text-xs font-bold text-[#333333] mb-2">상담 전문</h3>
             <div className="bg-white rounded-lg p-2.5 flex-1 overflow-y-auto">
+              <style>{`
+                @keyframes chatBubbleIn {
+                  from { opacity: 0; transform: translateY(8px); }
+                  to { opacity: 1; transform: translateY(0); }
+                }
+              `}</style>
               <div className="space-y-1.5">
                 {callTranscript.map((msg, index) => (
-                  <div key={index} className={`flex ${msg.speaker === 'agent' ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    key={index}
+                    className={`flex ${msg.speaker === 'agent' ? 'justify-end' : 'justify-start'}`}
+                    style={{
+                      animation: `chatBubbleIn 0.3s ease-out ${Math.min(index * 0.06, 2)}s both`,
+                    }}
+                  >
                     <div className={`max-w-[80%] ${msg.speaker === 'agent' ? 'text-right' : 'text-left'}`}>
-                      <div 
+                      <div
                         className={`inline-block px-2 py-1 rounded-lg text-[10px] ${
                           msg.speaker === 'agent'
                             ? 'bg-[#0047AB] text-white rounded-tr-sm'
@@ -1030,6 +1085,8 @@ export default function AfterCallWorkPage() {
                   className="flex items-center gap-2 p-2 rounded bg-white hover:bg-[#F8FBFF] cursor-pointer transition-colors border border-[#E0E0E0]"
                   onClick={() => {
                     setSelectedDocumentId(doc.documentId);
+                    setSelectedDocumentTitle(doc.title);
+                    setSelectedDocumentSourceTable(doc.sourceTable);
                     setIsDocumentModalOpen(true);
                   }}
                 >
@@ -1291,18 +1348,26 @@ export default function AfterCallWorkPage() {
           onClose={() => {
             setIsDocumentModalOpen(false);
             setSelectedDocumentId(null);
+            setSelectedDocumentTitle(null);
+            setSelectedDocumentSourceTable(undefined);
           }}
           documentId={selectedDocumentId}
+          documentData={selectedDocumentTitle ? {
+            title: selectedDocumentTitle,
+            content: selectedDocumentTitle,
+            sourceTable: selectedDocumentSourceTable,
+          } : undefined}
         />
       )}
 
-      {/* ⭐ Phase 8-2: 피드백 모달 */}
+      {/* ⭐ Phase 8-2: 피드백 모달 (교육 모드 분기) */}
       <FeedbackModal
         isOpen={isFeedbackModalOpen}
         onClose={() => setIsFeedbackModalOpen(false)}
         onConfirm={handleFeedbackConfirm}
         acwTimeSeconds={getCurrentAcwTime()}
         callTimeSeconds={parseInt(localStorage.getItem('consultationCallTime') || '0')}
+        educationType={isSimulationMode ? (sessionStorage.getItem('educationType') as 'basic' | 'advanced' | undefined) || 'basic' : undefined}
       />
 
       {/* ⭐ Phase 11: 참조 문서 전체보기 모달 */}
@@ -1312,11 +1377,14 @@ export default function AfterCallWorkPage() {
         documents={referencedDocuments.map(doc => ({
           id: doc.documentId,
           title: doc.title,
-          category: '', // 카테고리 정보가 없으면 빈 문자열
-          content: undefined
+          category: doc.documentType || '',
+          content: doc.content,
+          sourceTable: doc.sourceTable,
         }))}
         onDocumentClick={(doc) => {
           setSelectedDocumentId(doc.id);
+          setSelectedDocumentTitle(doc.title);
+          setSelectedDocumentSourceTable((doc as any).sourceTable);
           setIsDocumentModalOpen(true);
         }}
       />

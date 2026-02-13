@@ -135,7 +135,7 @@ export const SearchHistoryDropdown = ({
       >
         <div className="flex items-center gap-2">
           <Clock className="w-3 h-3" />
-          <span>검색 이력 {history.length}건 ({currentItem.results.length}개 문서)</span>
+          <span>검색 이력 {history.length}건</span>
         </div>
         {isOpen ? (
           <ChevronUp className="w-3.5 h-3.5" />
@@ -223,8 +223,8 @@ export const SearchHistoryDropdown = ({
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {/* 검색 유사도 (좌측 정렬) + 점수 (우측 정렬) */}
                       <div className="flex items-center gap-0.5" style={{ width: '80px' }}>
-                        <span className="text-[9px] text-[#999999]">유사도</span>
-                        <span className="text-[9px] text-[#999999] ml-auto">{score.toFixed(1)}점</span>
+                        <span className="text-[9px] text-[#999999]">검색 유사도</span>
+                        <span className="text-[9px] text-[#999999] ml-auto">{score.toFixed(2)}</span>
                       </div>
                       <button
                         onClick={(e) => handleDeleteDocument(e, card)}

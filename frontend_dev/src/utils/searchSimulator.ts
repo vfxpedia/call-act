@@ -4,10 +4,10 @@
 import { searchMockData, getDocumentNames } from '@/data/searchMockData';
 import { ScenarioCard } from '@/data/scenarios';
 import { addTimestampToCard, updateCardDisplayTime } from './timeFormatter';
+import { normalizeRAGCard } from './documentTransformer';
 import { USE_MOCK_DATA } from '@/config/mockConfig';
 
-// RAG API 기본 URL
-const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
+import { API_BASE_URL } from '@/config';
 
 /**
  * 검색 결과 타입
@@ -42,8 +42,7 @@ const searchWithRAG = async (query: string): Promise<SearchResult> => {
     }
 
     const result = await response.json();
-    // [v26] 백엔드 searchTime 우선 사용, 없으면 프론트엔드 측정값
-    const elapsed = result.searchTime || Math.round(performance.now() - startTime);
+    const elapsed = Math.round(performance.now() - startTime);
 
     // currentSituation + nextStep 카드 합치기 (Mock과 동일하게 2개로 제한)
     const rawCards = [
@@ -62,42 +61,25 @@ const searchWithRAG = async (query: string): Promise<SearchResult> => {
       };
     }
 
-    // ScenarioCard 형태로 변환 + timestamp + relevanceScore 추가
+    // ScenarioCard 형태로 변환 (중앙 유틸리티 사용)
+    // normalizeRAGCard가 백엔드의 실제 relevanceScore를 보존
     const cards: ScenarioCard[] = rawCards.map((card: any, idx: number) => {
-      const scenarioCard: ScenarioCard = {
-        id: card.id || `RAG-${Date.now()}-${idx}`,
-        title: card.title || '',
-        keywords: card.keywords || [],
-        content: card.content || '',
-        systemPath: card.systemPath || '',
-        requiredChecks: card.requiredChecks || [],
-        exceptions: card.exceptions || [],
-        time: card.time || '',
-        note: card.note || '',
-        regulation: card.regulation || '',
-        fullText: card.fullText || card.content || '',
-        documentType: card.documentType || 'general',
-      };
-      const withTimestamp = addTimestampToCard(scenarioCard);
-      return {
-        ...withTimestamp,
-        // [v26] 백엔드 실제 relevanceScore 사용 (0~100)
-        relevanceScore: card.relevanceScore ?? (100 - (idx * 2.5)),
-      };
+      return normalizeRAGCard(card, idx);
     });
 
-    // [v26] 평균 relevanceScore로 accuracy 계산
+    // 정확도: 카드들의 실제 유사도 평균
     const avgScore = cards.length > 0
-      ? cards.reduce((sum, c) => sum + ((c as any).relevanceScore || 0), 0) / cards.length
+      ? Math.round(cards.reduce((sum, c) => sum + (c.relevanceScore || 0), 0) / cards.length)
       : 0;
-    console.log(`[RAG API] 검색 완료: ${cards.length}건 (${elapsed}ms, avg score: ${avgScore.toFixed(1)})`);
+
+    console.log(`[RAG API] 검색 완료: ${cards.length}건 (${elapsed}ms), 평균 유사도: ${avgScore}%`);
 
     return {
       query,
       cards,
       documentNames: getDocumentNames(cards),
       searchTime: elapsed,
-      accuracy: Math.round(avgScore),
+      accuracy: avgScore,
     };
   } catch (error) {
     console.error('[RAG API] 검색 실패, Mock fallback:', error);

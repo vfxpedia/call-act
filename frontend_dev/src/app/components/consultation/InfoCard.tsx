@@ -14,6 +14,7 @@ interface InfoCardProps {
   searchNumber?: number; // 검색 결과 카드만 사용 (검색결과1, 검색결과2...)
   source: CardSource;
   onDetailClick: () => void;
+  isFocused?: boolean; // 키보드 네비게이션 포커스 상태
   className?: string;
   style?: React.CSSProperties;
 }
@@ -60,7 +61,7 @@ const formatRelativeTime = (timestamp?: string): string | null => {
  * - 검색 결과 카드 (검색 결과 배지, 보라색 테두리)
  * - 다음 단계 예상 카드 (노란색 테두리)
  */
-export const InfoCard = ({ card, stepNumber, searchNumber, source, onDetailClick, className = '', style }: InfoCardProps) => {
+export const InfoCard = ({ card, stepNumber, searchNumber, source, onDetailClick, isFocused = false, className = '', style }: InfoCardProps) => {
   // 타임스탬프를 현재 시각 기준으로 실시간 계산
   const [relativeTime, setRelativeTime] = useState<string | null>(
     card.timestamp ? formatRelativeTime(card.timestamp) : card.displayTime || null
@@ -124,7 +125,7 @@ export const InfoCard = ({ card, stepNumber, searchNumber, source, onDetailClick
 
   return (
     <div
-      className={`${getCardStyle()} rounded-lg p-3 shadow-md hover:shadow-xl transition-all flex flex-col h-[340px] overflow-y-auto ${className}`}
+      className={`${getCardStyle()} rounded-lg p-3 shadow-md hover:shadow-xl transition-all flex flex-col h-[340px] overflow-y-auto ${isFocused ? 'outline outline-2 outline-[#0047AB] shadow-lg z-10' : ''} ${className}`}
       style={style}
       onDoubleClick={onDetailClick} // ⭐ 더블클릭으로 자세히 보기
     >
@@ -151,7 +152,7 @@ export const InfoCard = ({ card, stepNumber, searchNumber, source, onDetailClick
 
       {/* 키워드 */}
       <div className="flex flex-wrap gap-1.5 mb-3">
-        {card.keywords.map((keyword: string, index: number) => (
+        {(card.keywords || []).map((keyword: string, index: number) => (
           <span
             key={index}
             className={`text-[11px] px-2 py-0.5 rounded font-medium ${
@@ -174,13 +175,13 @@ export const InfoCard = ({ card, stepNumber, searchNumber, source, onDetailClick
       {card.attributes && <ProductAttributesGrid attributes={card.attributes} />}
 
       {/* DocumentType별 맞춤 정보 표시 */}
-      {card.documentType === 'product-spec' && (
+      {card.documentType === 'product-spec' && (card.regulation || card.note) && (
         <div className="bg-[#F8FCFF] rounded-md p-2.5 mb-2.5 space-y-1.5 border border-[#0047AB]/10">
-          <div className="flex items-center justify-between">
+          {card.regulation && (
             <div className="text-[10px] text-[#666666]">
               <span className="font-semibold text-[#0047AB]">📋 {card.regulation}</span>
             </div>
-          </div>
+          )}
           {card.note && (
             <div className="text-[10px] text-[#34A853] font-medium bg-[#E6F4EA] px-2 py-1 rounded">
               💡 {card.note}
@@ -196,36 +197,63 @@ export const InfoCard = ({ card, stepNumber, searchNumber, source, onDetailClick
         </div>
       )}
 
-      {/* 실무 정보 (guide, terms, general 타입에만 표시) */}
-      {(!card.documentType || ['guide', 'terms', 'general'].includes(card.documentType)) && card.type !== 'product-info' && (
+      {/* 실무 정보 (guide, terms, general 타입에만 표시, 내용 있을 때만) */}
+      {(!card.documentType || ['guide', 'terms', 'general'].includes(card.documentType)) && card.type !== 'product-info' &&
+        (card.systemPath || (card.requiredChecks?.length > 0) || (card.exceptions?.length > 0)) && (
         <div className="bg-white/60 rounded-md p-2.5 mb-2.5 space-y-2">
-          <div className="text-[11px] text-[#0047AB] font-medium border-b border-[#0047AB]/10 pb-1.5">
-            🖥️ {card.systemPath}
-          </div>
+          {card.systemPath && (
+            <div className="text-[11px] text-[#0047AB] font-medium border-b border-[#0047AB]/10 pb-1.5">
+              🖥️ {card.systemPath}
+            </div>
+          )}
 
-          <div>
-            <div className="text-[11px] font-semibold text-[#333333] mb-1">필수 확인 사항:</div>
-            {card.requiredChecks.slice(0, 2).map((check: string, index: number) => (
-              <div key={index} className="text-[10px] text-[#666666] leading-relaxed">
-                {check}
-              </div>
-            ))}
-          </div>
+          {card.requiredChecks?.length > 0 && (
+            <div>
+              <div className="text-[11px] font-semibold text-[#333333] mb-1">필수 확인 사항:</div>
+              {card.requiredChecks.slice(0, 2).map((check: string, index: number) => (
+                <div key={index} className="text-[10px] text-[#666666] leading-relaxed">
+                  {check}
+                </div>
+              ))}
+            </div>
+          )}
 
-          <div>
-            <div className="text-[11px] font-semibold text-[#333333] mb-1">예외 사항:</div>
-            {card.exceptions.slice(0, 1).map((exception: string, index: number) => (
-              <div key={index} className="text-[10px] text-[#EA4335] leading-relaxed">
-                {exception}
-              </div>
-            ))}
-          </div>
+          {card.exceptions?.length > 0 && (
+            <div>
+              <div className="text-[11px] font-semibold text-[#333333] mb-1">예외 사항:</div>
+              {card.exceptions.slice(0, 1).map((exception: string, index: number) => (
+                <div key={index} className="text-[10px] text-[#EA4335] leading-relaxed">
+                  {exception}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* 하단: 처리 시간 + 자세히 보기 */}
+      {/* 하단: 유사도 + 처리 시간 + 자세히 보기 */}
       <div className="mt-auto pt-2 border-t border-[#E0E0E0] flex items-center justify-between">
-        <span className="text-[10px] text-[#999999]">⏱ {card.time}</span>
+        <div className="flex items-center gap-2">
+          {/* 유사도 표시 (Backend에서 전달 시) */}
+          {card.relevanceScore != null && card.relevanceScore > 0 && (
+            <span className="flex items-center gap-0.5">
+              <span className="text-[10px] text-[#999999]">유사도</span>
+              <span className={`text-[10px] font-semibold ${
+                card.relevanceScore >= 80 ? 'text-[#34A853]' :
+                card.relevanceScore >= 50 ? 'text-[#FBBC04]' :
+                'text-[#EA4335]'
+              }`}>{card.relevanceScore}%</span>
+            </span>
+          )}
+          {/* 검색 소요시간 표시 (Backend에서 전달 시) */}
+          {card.searchTimeMs != null && card.searchTimeMs > 0 && (
+            <span className="text-[10px] text-[#999999]">
+              검색 {card.searchTimeMs < 1000 ? `${Math.round(card.searchTimeMs)}ms` : `${(card.searchTimeMs / 1000).toFixed(1)}s`}
+            </span>
+          )}
+          {/* 기존 처리 시간 */}
+          {card.time && <span className="text-[10px] text-[#999999]">{card.time}</span>}
+        </div>
         <button
           onClick={onDetailClick}
           className={`text-[10px] font-semibold flex items-center gap-1 px-2 py-1 rounded transition-colors ${

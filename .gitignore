@@ -215,6 +215,21 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# Local ML Models (large files)
+backend_dev/models/
+
+# Local servers (VibeVoice, comparison dashboard, etc.)
+backend_dev/local_servers/
+
+# TTS generated audio output
+backend_dev/app/llm/education/tts_output/
+
+# Source data (large)
+source/
+
+# Frontend test recordings (large)
+frontend_dev/test/
+
 # Node.js
 node_modules/
 package-lock.json

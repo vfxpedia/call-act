@@ -5,6 +5,7 @@
  */
 
 import { USE_MOCK_DATA } from '@/config/mockConfig';
+import { API_BASE_URL } from '@/config';
 import type { 
   SaveConsultationRequest, 
   ApiResponse,
@@ -312,7 +313,6 @@ export async function saveConsultation(
   }
 
   // ✅ Real DB 저장: 실전 모드 + 다이렉트콜만 해당
-  const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
   console.log('🔗 [실전 다이렉트콜] 실제 API 호출: POST /api/v1/consultations');
 
   // ⭐ [v24] 백엔드 스키마가 Frontend와 동일하므로 변환 불필요
@@ -354,8 +354,6 @@ export async function saveConsultation(
 // ========================================
 // 5. 상담 목록 조회 API
 // ========================================
-
-const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
 
 export interface ConsultationItem {
   id: string;
@@ -405,7 +403,7 @@ export interface ConsultationDetail {
   // 상담 내용
   ai_summary: string;
   agent_notes?: string;
-  transcript?: { messages: Array<{ speaker: string; message: string; timestamp: string }> };
+  transcript?: Array<{ speaker: string; message: string; timestamp: string }>;
   processing_timeline?: Array<{ time: string; action: string; category?: string | null }>;
 
   // 감정/만족도
@@ -421,7 +419,17 @@ export interface ConsultationDetail {
   transfer_notes?: string;
 
   // 참조 문서
-  referenced_documents?: Array<{ doc_id: string; doc_type: string; title: string; used: boolean }>;
+  referenced_documents?: Array<{
+    documentId: string;
+    documentType: string;
+    title: string;
+    used: boolean;
+    stepNumber?: number;
+    sourceTable?: string;
+    category?: string | null;
+    relevanceScore?: number;
+    viewCount?: number;
+  }>;
 
   // 녹취
   recording_file_path?: string;
@@ -468,6 +476,7 @@ export async function fetchConsultations(options?: {
   agentId?: string;
   dateFrom?: string;
   dateTo?: string;
+  isBestPractice?: boolean;
 }): Promise<ConsultationItem[]> {
   // Mock 데이터 import
   const { consultationsData } = await import('@/data/mock');
@@ -484,6 +493,9 @@ export async function fetchConsultations(options?: {
         }
         if (options?.category) {
           data = data.filter(c => c.category.includes(options.category));
+        }
+        if (options?.isBestPractice !== undefined) {
+          data = data.filter(c => c.isBestPractice === options.isBestPractice);
         }
 
         // 정렬 (최신순)
@@ -511,6 +523,7 @@ export async function fetchConsultations(options?: {
     if (options?.agentId) params.append('agent_id', options.agentId);
     if (options?.dateFrom) params.append('date_from', options.dateFrom);
     if (options?.dateTo) params.append('date_to', options.dateTo);
+    if (options?.isBestPractice !== undefined) params.append('is_best_practice', String(options.isBestPractice));
 
     const response = await fetch(`${API_BASE_URL}/consultations?${params.toString()}`, {
       method: 'GET',

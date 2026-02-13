@@ -1,24 +1,16 @@
 import { useNavigate } from 'react-router-dom';
-import { noticesData, consultationsData, employeesData, simulationsData, dashboardStatsData, weeklyGoalData, teamStatsData, frequentInquiriesDetailData } from '@/data/mock';
+import { noticesData, consultationsData, employeesData, simulationsData } from '@/data/mock';
 import { fetchFrequentInquiries, type FrequentInquiry } from '@/api/frequentInquiriesApi';
 import { enrichConsultationData } from '../../data/consultationsDataHelper';
 import ConsultationDetailModal from '../components/modals/ConsultationDetailModal';
 import AnnouncementModal from '../components/modals/AnnouncementModal';
 import FrequentInquiryModal from '../components/modals/FrequentInquiryModal';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CheckCircle, Clock, XCircle, AlertCircle, ExternalLink, Star, TrendingUp, TrendingDown, Minus, Target, Users, BookOpen, Shield, Play } from 'lucide-react';
 import MainLayout from '../components/layout/MainLayout';
 import { fetchNotices, incrementViewCount, type Notice } from '@/api/noticesApi';
 import { fetchTopEmployees, type TopEmployee } from '@/api/employeesApi';
 import { fetchConsultations, type ConsultationItem } from '@/api/consultationApi';
-
-// ⭐ Mock 데이터에서 가져오기
-const stats = dashboardStatsData;
-
-// ⭐ 우수 상담사는 이제 컴포넌트 내부에서 API로 가져옴 (아래 useEffect 참조)
-
-const weeklyGoal = weeklyGoalData;
-const teamStats = teamStatsData;
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -104,14 +96,14 @@ export default function DashboardPage() {
     const loadConsultations = async () => {
       try {
         setIsLoadingConsultations(true);
-        const data = await fetchConsultations({ limit: 20 });
+        const data = await fetchConsultations({ limit: 200 });
 
         // 데이터 가공 (title, time, date 추가)
         const enrichedData = data.map((c: ConsultationItem) => {
           const enriched = enrichConsultationData(c);
           return {
             ...enriched,
-            title: enriched.memo || enriched.content || '상담 내용',
+            title: (enriched.content?.split('\n')[0]) || enriched.memo || '상담 내용',
             time: enriched.datetime?.split(' ')[1] || '',
             date: enriched.datetime?.split(' ')[0] || '',
           };
@@ -125,7 +117,7 @@ export default function DashboardPage() {
           const enriched = enrichConsultationData(c);
           return {
             ...enriched,
-            title: enriched.memo || '상담 내용',
+            title: (enriched.content?.split('\n')[0]) || enriched.memo || '상담 내용',
             time: enriched.datetime.split(' ')[1],
             date: enriched.datetime.split(' ')[0],
           };
@@ -154,6 +146,48 @@ export default function DashboardPage() {
     };
     loadFrequentInquiries();
   }, []);
+
+  // ⭐ KPI 카드: consultationHistory에서 동적 계산
+  const stats = useMemo(() => {
+    const total = consultationHistory.length;
+    const completed = consultationHistory.filter(c => c.status === '완료').length;
+    const pending = consultationHistory.filter(c => c.status === '진행중').length;
+    const incomplete = consultationHistory.filter(c => c.status === '미완료').length;
+    return { todayCalls: total, completed, pending, incomplete };
+  }, [consultationHistory]);
+
+  // ⭐ 팀별 통계: consultationHistory에서 동적 계산
+  const teamStats = useMemo(() => {
+    const teamMap = new Map<string, { calls: number; fcrCount: number }>();
+    consultationHistory.forEach((c: any) => {
+      const team = c.team || '기타';
+      if (!teamMap.has(team)) teamMap.set(team, { calls: 0, fcrCount: 0 });
+      const t = teamMap.get(team)!;
+      t.calls++;
+      if (c.fcr) t.fcrCount++;
+    });
+    const colors = ['#0047AB', '#34A853', '#FBBC04', '#EA4335', '#9C27B0'];
+    return Array.from(teamMap.entries())
+      .map(([team, data], i) => ({
+        team,
+        calls: data.calls,
+        fcr: data.calls > 0 ? Math.round((data.fcrCount / data.calls) * 100) : 0,
+        color: colors[i % colors.length],
+      }))
+      .sort((a, b) => b.calls - a.calls);
+  }, [consultationHistory]);
+
+  // ⭐ 주간 목표: 완료 건수 기반 동적 계산
+  const weeklyGoal = useMemo(() => {
+    const completed = consultationHistory.filter(c => c.status === '완료').length;
+    const total = consultationHistory.length;
+    const target = Math.max(total, 10);
+    return {
+      target,
+      current: completed,
+      percentage: target > 0 ? Math.min(Math.round((completed / target) * 100), 100) : 0,
+    };
+  }, [consultationHistory]);
 
   const handleConsultationClick = (consultation: any) => {
     setSelectedConsultation(consultation);
@@ -195,8 +229,8 @@ export default function DashboardPage() {
   return (
     <MainLayout>
       {/* 최대 너비 제한 + 중앙 정렬 (큰 화면 대응) */}
-      <div className="h-[calc(100vh-60px)] bg-[#F5F5F5] p-3 sm:p-4 lg:p-6 overflow-hidden flex items-center justify-center">
-        <div className="w-full max-w-[1920px] h-full grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 overflow-hidden">
+      <div className="h-[var(--content-height)] bg-[#F5F5F5] p-3 sm:p-4 lg:p-6 flex items-center justify-center">
+        <div className="w-full max-w-[1920px] h-full grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {/* 좌측 영역 (50%) - 내부 스크롤 */}
           <div className="flex flex-col gap-3 sm:gap-4 overflow-y-auto overflow-x-hidden">
             {/* KPI 카운팅 4개 (모바일 4x1, 태블릿+ 1x4) */}
@@ -417,9 +451,10 @@ export default function DashboardPage() {
                     <div 
                       key={sim.id}
                       className="p-3 rounded-lg border-2 border-[#E0E0E0] hover:border-[#0047AB] hover:shadow-md cursor-pointer transition-all"
+                      onClick={() => navigate('/simulation')}
                     >
                       <div className="flex items-start gap-2 mb-2">
-                        <div 
+                        <div
                           className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                           style={{ backgroundColor: `${sim.color}15` }}
                         >
@@ -434,7 +469,7 @@ export default function DashboardPage() {
                           </h3>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between pt-2 border-t border-[#E0E0E0]">
                         <div className="flex items-center gap-2">
                           <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
@@ -449,9 +484,20 @@ export default function DashboardPage() {
                             {sim.duration}
                           </span>
                         </div>
-                        <button 
-                          className="px-2 py-1 rounded text-[10px] font-semibold text-white flex items-center gap-1"
+                        <button
+                          className="px-2 py-1 rounded text-[10px] font-semibold text-white flex items-center gap-1 hover:opacity-90"
                           style={{ backgroundColor: sim.color }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sessionStorage.setItem('simulationMode', 'true');
+                            sessionStorage.setItem('educationType', 'basic');
+                            sessionStorage.setItem('scenarioId', sim.scenarioId);
+                            sessionStorage.setItem('educationCategory', sim.category);
+                            localStorage.removeItem('isGuideModeActive');
+                            navigate('/consultation/live', {
+                              state: { mode: 'simulation', educationType: 'basic', scenarioId: sim.scenarioId }
+                            });
+                          }}
                         >
                           <Play className="w-2.5 h-2.5" />
                           시작
@@ -541,7 +587,6 @@ export default function DashboardPage() {
           isOpen={isFrequentInquiryModalOpen}
           onClose={() => setIsFrequentInquiryModalOpen(false)}
           inquiry={selectedFrequentInquiry}
-          detailData={frequentInquiriesDetailData}
         />
       )}
     </MainLayout>

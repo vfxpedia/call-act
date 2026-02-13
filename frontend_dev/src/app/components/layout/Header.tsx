@@ -34,8 +34,8 @@ export default function Header() {
     console.log('🔍 [Header] isGuideModeActive:', guideModeActive);
     console.log('🔍 [Header] pathname:', location.pathname);
     
-    // ⭐ 교육 모드 유지 경로: 상담 페이지, 로딩 페이지, 후처리 페이지
-    const keepSimulationPaths = ['/consultation/live', '/loading', '/acw'];
+    // ⭐ 교육 모드 유지 경로: 상담 페이지, 로딩 페이지, 후처리 페이지, 시뮬레이션 페이지
+    const keepSimulationPaths = ['/consultation/live', '/loading', '/acw', '/simulation'];
     if (!keepSimulationPaths.includes(location.pathname)) {
       sessionStorage.removeItem('simulationMode');
       sessionStorage.removeItem('educationType');
@@ -171,8 +171,8 @@ export default function Header() {
     : '교육 시뮬레이션 모드';
   
   const educationModeSubtitle = educationType === 'advanced'
-    ? '실제 상담 사례로 최고의 상담 스킬 습득하기'
-    : '안전하게 연습하세요';
+    ? '실제 우수 사례 기반 모방 학습 및 유사도 평가'
+    : 'AI 시나리오 기반 상담 역량 연습 및 피드백';
 
   return (
     <header className={`h-[60px] ${headerBgClass} border-b ${headerBorderClass} flex items-center justify-between px-3 sm:px-6 fixed top-0 left-0 right-0 z-50 transition-colors duration-300`}>
@@ -277,16 +277,16 @@ export default function Header() {
           )}
         </button>
         
-        {/* ⭐ 가이드 배지 (교육 모드이고 가이드 활성화 시) */}
-        {isSimulationMode && isGuideModeActive && (
+        {/* ⭐ 가이드 배지 (교육 모드이고 가이드 활성화 시, /simulation은 항상 표시) */}
+        {(isSimulationMode || location.pathname === '/simulation') && isGuideModeActive && (
           <span className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400 text-gray-900 rounded-lg shadow-sm animate-pulse">
             <AlertCircle className="w-4 h-4" />
             <span className="text-xs font-bold">가이드</span>
           </span>
         )}
         
-        {/* ⭐ 가이드 시작 버튼 (교육 모드이고 가이드 비활성화 시) */}
-        {isSimulationMode && !isGuideModeActive && location.pathname === '/consultation/live' && (
+        {/* ⭐ 가이드 시작 버튼 (교육 모드이고 가이드 비활성화 시, /simulation은 항상 표시) */}
+        {(isSimulationMode || location.pathname === '/simulation') && !isGuideModeActive && ['/consultation/live', '/acw', '/simulation'].includes(location.pathname) && (
           <button
             onClick={() => {
               // localStorage에 가이드 시작 요청 플래그 설정
@@ -314,7 +314,7 @@ export default function Header() {
           </button>
         )}
         
-        {pendingACW && !activeCallState && (
+        {pendingACW && (!activeCallState || !activeCallState.isActive) && (
           <button
             onClick={() => navigate('/acw')}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-[#0047AB] to-[#003580] text-white rounded-lg hover:shadow-lg transition-all text-xs font-semibold"
